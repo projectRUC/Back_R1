@@ -4,10 +4,75 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model RolUsuario {
+  rolUsuId   Int       @id @default(autoincrement()) @map("rol_usu_id")
+  rolUsuNom  String    @unique @map("rol_usu_nom") @db.VarChar(50)
+  rolUsuDesc String?   @map("rol_usu_desc") @db.VarChar(255)
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  usuarios Usuario[]
+
+  @@map("rol_usuario")
+}
+
+model Usuario {
+  usuId     Int       @id @default(autoincrement()) @map("usu_id")
+  usuNom    String    @map("usu_nom") @db.VarChar(50)
+  usuApp    String    @map("usu_app") @db.VarChar(50)
+  usuApm    String?   @map("usu_apm") @db.VarChar(50)
+  rolId     Int       @map("rol_id")
+  usuEmail  String    @unique @map("usu_email") @db.VarChar(100)
+  usuPass   String    @map("usu_pass") @db.VarChar(255)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  crea      DateTime? @default(now()) @map("crea") @db.Timestamp(6)
+
+  rolUsuario RolUsuario @relation(fields: [rolId], references: [rolUsuId], onDelete: Restrict, map: "fk_usuario_rol")
+
+  equiposAlumno EquipoAlumno[]
+
+  @@map("usuario")
+}
+
+model RolEquipo {
+  rolEqId   Int       @id @default(autoincrement()) @map("rol_eq_id")
+  rolEqNom  String    @unique @map("rol_eq_nom") @db.VarChar(50)
+  rolEqDesc String?   @map("rol_eq_desc") @db.VarChar(255)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  equiposAlumno EquipoAlumno[]
+
+  @@map("rol_equipo")
+}
+
+model Equipo {
+  eqId       Int       @id @default(autoincrement()) @map("eq_id")
+  eqNom      String    @map("eq_nom") @db.VarChar(100)
+  proyectoId String    @map("proyecto_id")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  equiposAlumno EquipoAlumno[]
+
+  @@map("equipo")
+}
+
+model EquipoAlumno {
+  eqAluId   Int       @id @default(autoincrement()) @map("eq_alu_id")
+  usuId     Int       @map("usu_id")
+  eqId      Int       @map("eq_id")
+  rolEqId   Int       @map("rol_eq_id")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  usuario   Usuario   @relation(fields: [usuId], references: [usuId], onDelete: Cascade, map: "fk_equipo_alumno_usuario")
+  equipo    Equipo    @relation(fields: [eqId], references: [eqId], onDelete: Cascade, map: "fk_equipo_alumno_equipo")
+  rolEquipo RolEquipo @relation(fields: [rolEqId], references: [rolEqId], onDelete: Restrict, map: "fk_equipo_alumno_rol")
+
+  @@unique([usuId, eqId], map: "uq_usuario_equipo")
+  @@map("equipo_alumno")
 }
