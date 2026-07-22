@@ -25,7 +25,10 @@ export class Evidencia {
 }
 const EvidenciaSchema = SchemaFactory.createForClass(Evidencia);
 
-@Schema({ collection: 'actividades', timestamps: { createdAt: 'created_at', updatedAt: false } })
+@Schema({
+  collection: 'actividades',
+  timestamps: { createdAt: 'created_at', updatedAt: false },
+})
 export class Actividad extends Document {
   @Prop({ required: true, type: Number })
   eq_id: number;

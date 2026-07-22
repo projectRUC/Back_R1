@@ -17,7 +17,10 @@ export class RespuestaDaily {
 }
 const RespuestaDailySchema = SchemaFactory.createForClass(RespuestaDaily);
 
-@Schema({ collection: 'dailies', timestamps: { createdAt: 'created_at', updatedAt: false } })
+@Schema({
+  collection: 'dailies',
+  timestamps: { createdAt: 'created_at', updatedAt: false },
+})
 export class Daily extends Document {
   @Prop({ required: true, type: Number })
   eq_id: number;

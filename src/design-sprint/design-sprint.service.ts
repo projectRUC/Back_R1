@@ -8,7 +8,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
 import { CreateDesignSprintEvidenceDto } from './dto/create-design-sprint-evidence.dto';
-import { DesignSprintEvidence, DesignSprintEvidenceDocument, DIA_POR_FASE, FaseDesignSprint, ORDEN_FASES } from 'src/database/schemas/design-sprint-evidence.schema';
+import {
+  DesignSprintEvidence,
+  DesignSprintEvidenceDocument,
+  DIA_POR_FASE,
+  FaseDesignSprint,
+  ORDEN_FASES,
+} from 'src/database/schemas/design-sprint-evidence.schema';
 
 /** Tamaño máximo permitido por evidencia individual (evita desbordamiento de memoria) */
 const MAX_BASE64_SIZE_MB = 5;
