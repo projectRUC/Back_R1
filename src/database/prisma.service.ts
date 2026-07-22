@@ -17,7 +17,10 @@ import { Pool } from 'pg';
  * evitando fugas de conexiones de base de datos.
  */
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor() {
     // Crear el pool de conexiones de PostgreSQL con la URL de Supabase
     const pool = new Pool({
@@ -39,5 +42,3 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     await this.$disconnect();
   }
 }
-
-

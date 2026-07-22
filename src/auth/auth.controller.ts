@@ -58,9 +58,9 @@ export class AuthController {
 
     // Establece el JWT en una cookie HttpOnly segura
     res.cookie('access_token', accessToken, {
-      httpOnly: true,              // JS del cliente no puede acceder
+      httpOnly: true, // JS del cliente no puede acceder
       secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
-      sameSite: 'strict',          // Protección anti-CSRF
+      sameSite: 'strict', // Protección anti-CSRF
       maxAge: 8 * 60 * 60 * 1000, // 8 horas en milisegundos
     });
 
@@ -99,4 +99,3 @@ export class AuthController {
     };
   }
 }
-

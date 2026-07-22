@@ -6,8 +6,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 /** Forma del payload que viaja dentro del token JWT */
 export interface JwtPayload {
-  sub: number;  // ID del usuario (subject estándar de JWT)
-  rol: string;  // Nombre del rol (Alumno, Docente, Scrum Master)
+  sub: number; // ID del usuario (subject estándar de JWT)
+  rol: string; // Nombre del rol (Alumno, Docente, Scrum Master)
   iat?: number; // Issued at (generado automáticamente)
   exp?: number; // Expiration (generado automáticamente)
 }
@@ -50,4 +50,3 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return { sub: payload.sub, rol: payload.rol };
   }
 }
-
