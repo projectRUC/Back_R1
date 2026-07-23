@@ -8,7 +8,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { FaseDesignSprint } from 'src/database/schemas/design-sprint-evidence.schema';
+import { FaseDesignSprint } from '../design-sprint.interface';
 
 export class CreateDesignSprintEvidenceDto {
   @IsNumber()
@@ -24,9 +24,9 @@ export class CreateDesignSprintEvidenceDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(5, { message: 'Máximo 5 evidencias por registro de fase' })
+  @ArrayMaxSize(5, { message: 'Máximo 5 archivos por registro de fase' })
   @IsString({ each: true })
-  contenidoBase64?: string[];
+  archivosUrls?: string[];
 
   @IsOptional()
   @IsString()

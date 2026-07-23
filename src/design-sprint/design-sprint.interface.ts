@@ -1,16 +1,10 @@
-/**
- * ============================================================================
- * MÓDULO: Design Sprint (Registro de avances y evidencias)
- * ============================================================================
- * Este archivo define el CONTRATO PÚBLICO del módulo design-sprint.
- *
- * Úsalo para:
- *  - Tipar el body que debes enviar al registrar una fase.
- *  - Tipar la respuesta que recibes al consultar el avance de un equipo.
- *
- * Ubicación sugerida en el backend: src/design-sprint/interfaces/design-sprint.interface.ts
- * ============================================================================
- */
+// src/design-sprint/design-sprint.interface.ts
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+
+// ============================================================================
+// ENUM Y CONSTANTES
+// ============================================================================
 
 /**
  * Fases del Design Sprint, en el orden estricto en que deben registrarse.
@@ -23,33 +17,90 @@ export enum FaseDesignSprint {
   PROTOTIPAR = 'prototipar', // Jueves
 }
 
+/** Orden secuencial de las fases (usado para validar que no se salten días) */
+export const ORDEN_FASES: FaseDesignSprint[] = [
+  FaseDesignSprint.MAPEAR,
+  FaseDesignSprint.BOCETAR,
+  FaseDesignSprint.DECIDIR,
+  FaseDesignSprint.PROTOTIPAR,
+];
+
+/** Día hábil asignado a cada fase (para mensajes de error legibles) */
+export const DIA_POR_FASE: Record<FaseDesignSprint, string> = {
+  [FaseDesignSprint.MAPEAR]: 'Lunes',
+  [FaseDesignSprint.BOCETAR]: 'Martes',
+  [FaseDesignSprint.DECIDIR]: 'Miércoles',
+  [FaseDesignSprint.PROTOTIPAR]: 'Jueves',
+};
+
+// ============================================================================
+// SCHEMA DE MONGOOSE (lo que realmente se guarda en MongoDB)
+// ============================================================================
+
+export type DesignSprintEvidenceDocument = DesignSprintEvidence & Document;
+
+@Schema({
+  collection: 'design_sprint_evidences',
+  timestamps: { createdAt: 'created_at', updatedAt: false },
+})
+export class DesignSprintEvidence {
+  @Prop({ required: true, type: Number })
+  equipoId: number;
+
+  @Prop({ type: Types.ObjectId, required: true })
+  proyectoId: Types.ObjectId;
+
+  @Prop({ required: true, enum: FaseDesignSprint })
+  fase: FaseDesignSprint;
+
+  @Prop({ required: true, default: Date.now })
+  fechaRegistro: Date;
+
+  // URLs de los archivos subidos mediante el módulo Files
+  @Prop({ type: [String], default: [] })
+  archivosUrls: string[];
+
+  @Prop({ default: '' })
+  comentarios: string;
+}
+
+export const DesignSprintEvidenceSchema =
+  SchemaFactory.createForClass(DesignSprintEvidence);
+
+// Un equipo no debería tener dos registros para la misma fase del mismo proyecto
+DesignSprintEvidenceSchema.index(
+  { equipoId: 1, proyectoId: 1, fase: 1 },
+  { unique: true },
+);
+
+// ============================================================================
+// INTERFACES DE TIPADO (contrato público de entrada/salida de la API)
+// ============================================================================
+
 /**
  * Body para registrar el avance de una fase.
  * POST /design-sprint/evidencias
  *
  * IMPORTANTE sobre `proyectoId`:
- * No es un valor que se genera solo. Debe ser el `_id` de Mongo de un
- * proyecto QUE YA EXISTE en la colección `proyectos` (creado previamente
- * por el módulo de Proyectos). Si envías un valor que no existe o no tiene
- * el formato de ObjectId (24 caracteres hexadecimales), la API responde 400.
+ * Debe ser el `_id` de Mongo de un proyecto QUE YA EXISTE en la colección
+ * `proyectos`. Si envías un valor que no existe o no tiene formato de
+ * ObjectId (24 caracteres hexadecimales), la API responde 400.
  */
 export interface ICreateDesignSprintEvidenceInput {
   /** ID numérico del equipo que registra el avance */
   equipoId: number;
 
-  /** _id de Mongo del proyecto al que pertenece este Design Sprint (debe existir previamente) */
+  /** _id de Mongo del proyecto al que pertenece este Design Sprint */
   proyectoId: string;
 
   /** Fase que se está registrando */
   fase: FaseDesignSprint;
 
   /**
-   * Evidencias multimedia codificadas en Base64.
-   * Acepta tanto Base64 "puro" como Data URL completa
-   * (ej: "data:image/png;base64,iVBORw0KG...").
-   * Límites: máximo 5 evidencias por registro, 5MB cada una.
+   * URLs de los archivos ya subidos previamente vía POST /files/upload.
+   * Máximo 5 por registro.
    */
-  contenidoBase64?: string[];
+  archivosUrls?: string[];
 
   /** Comentarios u observaciones sobre la fase (máx. 1000 caracteres) */
   comentarios?: string;
@@ -60,24 +111,13 @@ export interface ICreateDesignSprintEvidenceInput {
  * y por GET .../fases/:fase (con el detalle completo de una fase).
  */
 export interface IDesignSprintEvidence {
-  /** ID único del registro, generado automáticamente por MongoDB */
   _id: string;
-
   equipoId: number;
-
-  /** _id de Mongo del proyecto (referencia externa) */
   proyectoId: string;
-
   fase: FaseDesignSprint;
-
-  /** Fecha y hora en que se registró el avance (ISO 8601) */
   fechaRegistro: string;
-
-  contenidoBase64: string[];
-
+  archivosUrls: string[];
   comentarios: string;
-
-  /** Fecha de creación del documento (ISO 8601), generada automáticamente */
   created_at: string;
 }
 
@@ -87,25 +127,17 @@ export interface IDesignSprintEvidence {
  */
 export interface IAvanceFase {
   fase: FaseDesignSprint;
-
-  /** Día hábil correspondiente a la fase (ej: "Lunes") */
   dia: string;
-
-  /** true si el equipo ya registró al menos un avance de esta fase */
   iniciado: boolean;
-
-  /** Fecha del registro, o null si aún no se ha iniciado */
   fechaRegistro: string | null;
-
-  /** Comentarios del registro, o null si aún no se ha iniciado */
   comentarios: string | null;
+  cantidadArchivos: number;
 }
 
 /**
  * Respuesta completa de GET /design-sprint/equipos/:equipoId/proyectos/:proyectoId
  * Siempre devuelve un array de 4 elementos, en el orden:
- * Mapear -> Bocetar -> Decidir -> Prototipar,
- * sin importar si ya fueron registradas o no.
+ * Mapear -> Bocetar -> Decidir -> Prototipar.
  */
 export type IAvanceDesignSprint = IAvanceFase[];
 

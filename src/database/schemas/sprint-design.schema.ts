@@ -1,118 +1,107 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Comentario, ComentarioSchema } from './common.schema';
 
-@Schema()
-export class Mapeo {
-  @Prop()
-  proyecto_problema: string;
+// ============================================================================
+// ENUM Y CONSTANTES
+// ============================================================================
 
-  @Prop()
-  proyecto_objective: string;
-
-  @Prop()
-  enfoque: string;
-
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
-
-  @Prop({ type: [ComentarioSchema], default: [] })
-  comentarios: Comentario[];
+export enum FaseDesignSprint {
+  MAPEAR = 'mapear',
+  BOCETAR = 'bocetar',
+  DECIDIR = 'decidir',
+  PROTOTIPAR = 'prototipar',
 }
-const MapeoSchema = SchemaFactory.createForClass(Mapeo);
 
-@Schema()
-export class Puntuacion {
-  @Prop({ required: true, type: Number })
-  usu_id: number;
+export const ORDEN_FASES: FaseDesignSprint[] = [
+  FaseDesignSprint.MAPEAR,
+  FaseDesignSprint.BOCETAR,
+  FaseDesignSprint.DECIDIR,
+  FaseDesignSprint.PROTOTIPAR,
+];
 
-  @Prop({ required: true, type: Number })
-  valor: number;
+export const DIA_POR_FASE: Record<FaseDesignSprint, string> = {
+  [FaseDesignSprint.MAPEAR]: 'Lunes',
+  [FaseDesignSprint.BOCETAR]: 'Martes',
+  [FaseDesignSprint.DECIDIR]: 'Miércoles',
+  [FaseDesignSprint.PROTOTIPAR]: 'Jueves',
+};
 
-  @Prop({ type: ComentarioSchema })
-  comentario: Comentario;
-}
-const PuntuacionSchema = SchemaFactory.createForClass(Puntuacion);
+// ============================================================================
+// SCHEMA DE MONGOOSE (esto es lo que se guarda realmente en MongoDB)
+// ============================================================================
 
-@Schema({ timestamps: { createdAt: 'created_at', updatedAt: false } })
-export class Boceto {
-  @Prop()
-  propuesta: string;
-
-  @Prop({ required: true, type: Number })
-  usu_id: number;
-
-  @Prop()
-  status: string;
-
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
-
-  @Prop({ type: [PuntuacionSchema], default: [] })
-  puntuaciones: Puntuacion[];
-
-  @Prop({ type: [ComentarioSchema], default: [] })
-  comentarios: Comentario[];
-}
-const BocetoSchema = SchemaFactory.createForClass(Boceto);
-
-@Schema({ timestamps: { createdAt: 'created_at', updatedAt: false } })
-export class Prototipo {
-  @Prop()
-  nombre_prototipo: string;
-
-  @Prop()
-  descripcion: string;
-
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
-
-  @Prop({ type: [ComentarioSchema], default: [] })
-  comentarios: Comentario[];
-}
-const PrototipoSchema = SchemaFactory.createForClass(Prototipo);
-
-@Schema({ timestamps: { createdAt: 'created_at', updatedAt: false } })
-export class Entrevista {
-  @Prop()
-  descripcion: string;
-
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
-
-  @Prop({ type: [ComentarioSchema], default: [] })
-  comentarios: Comentario[];
-}
-const EntrevistaSchema = SchemaFactory.createForClass(Entrevista);
+export type DesignSprintEvidenceDocument = DesignSprintEvidence & Document;
 
 @Schema({
-  collection: 'sprint_designs',
+  collection: 'design_sprint_evidences',
   timestamps: { createdAt: 'created_at', updatedAt: false },
 })
-export class SprintDesign extends Document {
+export class DesignSprintEvidence {
   @Prop({ required: true, type: Number })
-  eq_id: number;
+  equipoId: number;
 
   @Prop({ type: Types.ObjectId, required: true })
-  proyecto_id: Types.ObjectId;
+  proyectoId: Types.ObjectId;
 
-  @Prop()
-  status: string;
+  @Prop({ required: true, enum: FaseDesignSprint })
+  fase: FaseDesignSprint;
 
-  @Prop({ type: MapeoSchema })
-  mapeo: Mapeo;
+  @Prop({ required: true, default: Date.now })
+  fechaRegistro: Date;
 
-  @Prop({ type: [BocetoSchema], default: [] })
-  bocetos: Boceto[];
+  // URLs de los archivos subidos mediante el módulo Files
+  @Prop({ type: [String], default: [] })
+  archivosUrls: string[];
 
-  @Prop({ type: PrototipoSchema })
-  prototipo: Prototipo;
-
-  @Prop({ type: [EntrevistaSchema], default: [] })
-  entrevistas: Entrevista[];
-
-  @Prop({ type: [ComentarioSchema], default: [] })
-  comentarios_generales: Comentario[];
+  @Prop({ default: '' })
+  comentarios: string;
 }
 
-export const SprintDesignSchema = SchemaFactory.createForClass(SprintDesign);
+export const DesignSprintEvidenceSchema =
+  SchemaFactory.createForClass(DesignSprintEvidence);
+
+// Un equipo no debería tener dos registros para la misma fase del mismo proyecto
+DesignSprintEvidenceSchema.index(
+  { equipoId: 1, proyectoId: 1, fase: 1 },
+  { unique: true },
+);
+
+// ============================================================================
+// INTERFACES DE TIPADO (para contratos de entrada/salida de la API)
+// ============================================================================
+
+export interface ICreateDesignSprintEvidenceInput {
+  equipoId: number;
+  proyectoId: string;
+  fase: FaseDesignSprint;
+  archivosUrls?: string[];
+  comentarios?: string;
+}
+
+export interface IDesignSprintEvidence {
+  _id: string;
+  equipoId: number;
+  proyectoId: string;
+  fase: FaseDesignSprint;
+  fechaRegistro: string;
+  archivosUrls: string[];
+  comentarios: string;
+  created_at: string;
+}
+
+export interface IAvanceFase {
+  fase: FaseDesignSprint;
+  dia: string;
+  iniciado: boolean;
+  fechaRegistro: string | null;
+  comentarios: string | null;
+  cantidadArchivos: number;
+}
+
+export type IAvanceDesignSprint = IAvanceFase[];
+
+export interface IApiErrorResponse {
+  message: string;
+  error: string;
+  statusCode: number;
+}
