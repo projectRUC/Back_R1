@@ -59,4 +59,10 @@ export class FilesService {
     await this.fileModel.findByIdAndDelete(id).exec();
     return { message: 'Archivo eliminado correctamente' };
   }
+
+  async findByIds(ids: string[]): Promise<FileDocument[]> {
+  if (!ids || ids.length === 0) return [];
+  const files = await this.fileModel.find({ _id: { $in: ids } }).exec();
+  return files;
+}
 }
