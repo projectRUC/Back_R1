@@ -36,6 +36,23 @@ async function main() {
     console.log(`  Rol "${created.rolUsuNom}" creado → ID: ${created.rolUsuId}`);
   }
 
+  // ── Grupos Escolares ─────────────────────────────────────────────────────────
+  const grupos = [
+    { nom: '9ID1', desc: 'Ingeniería en Desarrollo de Software - Grupo 1' },
+    { nom: '9ID2', desc: 'Ingeniería en Desarrollo de Software - Grupo 2' },
+    { nom: '8ID1', desc: 'Ingeniería en Desarrollo de Software - Grupo 3' },
+  ];
+
+  console.log('\n  Grupos Escolares:');
+  for (const grupo of grupos) {
+    const created = await prisma.grupo.upsert({
+      where:  { grupoNom: grupo.nom },
+      update: { grupoDesc: grupo.desc },
+      create: { grupoNom: grupo.nom, grupoDesc: grupo.desc },
+    });
+    console.log(`  Grupo "${created.grupoNom}" creado → ID: ${created.grupoId}`);
+  }
+
   // ── Roles de equipo (si aplica) ──────────────────────────────────────────────
   const rolesEquipo = [
     { nom: 'Scrum Master', desc: 'Líder del sprint en el equipo' },

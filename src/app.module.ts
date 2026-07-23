@@ -9,6 +9,7 @@ import { FilesModule } from './files/files.module';
 import { DesignSprintModule } from './design-sprint/design-sprint.module';
 import { PrismaModule } from './database/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { EquiposModule } from './equipos/equipos.module';
 
 @Module({
   imports: [
@@ -35,6 +36,9 @@ import { AuthModule } from './auth/auth.module';
 
     // Módulo de autenticación JWT + RBAC
     AuthModule,
+
+    // Módulo de Equipos y Proyectos PAEC
+    EquiposModule,
 
     FilesModule,
     DesignSprintModule,
