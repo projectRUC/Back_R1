@@ -10,6 +10,7 @@ import { DesignSprintModule } from './design-sprint/design-sprint.module';
 import { PrismaModule } from './database/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { EquiposModule } from './equipos/equipos.module';
+import { GruposModule } from './grupos/grupos.module';
 
 @Module({
   imports: [
@@ -39,6 +40,9 @@ import { EquiposModule } from './equipos/equipos.module';
 
     // Módulo de Equipos y Proyectos PAEC
     EquiposModule,
+
+    // Módulo de Grupos Escolares
+    GruposModule,
 
     FilesModule,
     DesignSprintModule,
