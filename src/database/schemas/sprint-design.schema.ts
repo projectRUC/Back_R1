@@ -85,7 +85,10 @@ export class Entrevista {
 }
 const EntrevistaSchema = SchemaFactory.createForClass(Entrevista);
 
-@Schema({ collection: 'sprint_designs', timestamps: { createdAt: 'created_at', updatedAt: false } })
+@Schema({
+  collection: 'sprint_designs',
+  timestamps: { createdAt: 'created_at', updatedAt: false },
+})
 export class SprintDesign extends Document {
   @Prop({ required: true, type: Number })
   eq_id: number;

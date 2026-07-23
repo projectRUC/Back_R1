@@ -10,7 +10,6 @@ import {
 } from 'class-validator';
 import { FaseDesignSprint } from 'src/database/schemas/design-sprint-evidence.schema';
 
-
 export class CreateDesignSprintEvidenceDto {
   @IsNumber()
   equipoId: number;

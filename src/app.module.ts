@@ -46,4 +46,4 @@ import { EquiposModule } from './equipos/equipos.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule {}

@@ -1,0 +1,14 @@
+services:
+  backend-app:
+    container_name: nestjs-backend
+    build:
+      context: .
+      target: production
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    # Lee tu archivo .env local para conectarse a las BDs externas
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -15,7 +15,7 @@ async function bootstrap() {
   });
 
   // Parsea las cookies de cada petición entrante (necesario para JWT en cookie)
-  app.use(cookieParser() as any);
+  app.use(cookieParser());
 
   // ValidationPipe global: activa todas las validaciones de class-validator en los DTOs
   // whitelist: elimina propiedades no definidas en el DTO (protección contra mass assignment)
@@ -33,6 +33,8 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: '25mb' }));
 
   await app.listen(process.env.PORT ?? 3000);
-  console.log(`Servidor corriendo en: http://localhost:${process.env.PORT ?? 3000}`);
+  console.log(
+    `Servidor corriendo en: http://localhost:${process.env.PORT ?? 3000}`,
+  );
 }
-bootstrap();
+bootstrap();

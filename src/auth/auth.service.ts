@@ -116,7 +116,7 @@ export class AuthService {
 
     // 3. Construir el payload del JWT con sub (ID) y rol obligatorios
     const payload = {
-      sub: usuario.usuId,          // subject estándar JWT = ID del usuario
+      sub: usuario.usuId, // subject estándar JWT = ID del usuario
       rol: usuario.rolUsuario.rolUsuNom, // Nombre del rol para RBAC
     };
 
