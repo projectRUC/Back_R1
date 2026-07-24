@@ -7,7 +7,9 @@ export class CreateGrupoDto {
    */
   @IsString({ message: 'El nombre del grupo debe ser texto.' })
   @IsNotEmpty({ message: 'El nombre del grupo es obligatorio.' })
-  @MaxLength(50, { message: 'El nombre del grupo no puede exceder 50 caracteres.' })
+  @MaxLength(50, {
+    message: 'El nombre del grupo no puede exceder 50 caracteres.',
+  })
   grupoNom: string;
 
   /**
@@ -16,6 +18,8 @@ export class CreateGrupoDto {
    */
   @IsString({ message: 'La descripción del grupo debe ser texto.' })
   @IsOptional()
-  @MaxLength(255, { message: 'La descripción no puede exceder 255 caracteres.' })
+  @MaxLength(255, {
+    message: 'La descripción no puede exceder 255 caracteres.',
+  })
   grupoDesc?: string;
 }

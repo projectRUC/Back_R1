@@ -14,6 +14,7 @@ import { PrismaModule } from './database/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { EquiposModule } from './equipos/equipos.module';
 import { GruposModule } from './grupos/grupos.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { GruposModule } from './grupos/grupos.module';
     GruposModule,
     FilesModule,
     DesignSprintModule,
+    AiModule, // <--- Módulo de Inteligencia Artificial
   ],
   controllers: [AppController],
   providers: [AppService],

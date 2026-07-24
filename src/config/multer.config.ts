@@ -14,9 +14,10 @@ export const multerConfig = {
   }),
   fileFilter: (req, file, callback) => {
     // Extensiones permitidas - imágenes, videos, documentos, audio, comprimidos
-    const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|svg|ico|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|mp4|webm|mov|avi|mkv|wmv|flv|mp3|wav|ogg|aac|flac|zip|rar|7z|gz|tar)$/i;
+    const allowedExtensions =
+      /\.(jpg|jpeg|png|gif|webp|bmp|svg|ico|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|mp4|webm|mov|avi|mkv|wmv|flv|mp3|wav|ogg|aac|flac|zip|rar|7z|gz|tar)$/i;
     const ext = extname(file.originalname).toLowerCase();
-    
+
     if (!allowedExtensions.test(ext)) {
       return callback(
         new BadRequestException(`Tipo de archivo no permitido: ${ext}`),

@@ -61,8 +61,8 @@ export class FilesService {
   }
 
   async findByIds(ids: string[]): Promise<FileDocument[]> {
-  if (!ids || ids.length === 0) return [];
-  const files = await this.fileModel.find({ _id: { $in: ids } }).exec();
-  return files;
-}
+    if (!ids || ids.length === 0) return [];
+    const files = await this.fileModel.find({ _id: { $in: ids } }).exec();
+    return files;
+  }
 }

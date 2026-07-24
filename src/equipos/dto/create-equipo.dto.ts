@@ -47,10 +47,15 @@ export class CreateEquipoDto {
    * Se relacionarán en la tabla intermedia EquipoAlumno.
    * @example [1, 2, 3, 4]
    */
-  @IsArray({ message: 'Los integrantes deben ser proporcionados en un arreglo.' })
+  @IsArray({
+    message: 'Los integrantes deben ser proporcionados en un arreglo.',
+  })
   @ArrayNotEmpty({ message: 'El equipo debe tener al menos un integrante.' })
   @Type(() => Number)
-  @IsInt({ each: true, message: 'Cada integrante debe ser un ID numérico entero.' })
+  @IsInt({
+    each: true,
+    message: 'Cada integrante debe ser un ID numérico entero.',
+  })
   integrantes: number[];
 
   /**

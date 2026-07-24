@@ -8,7 +8,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 
 import {
-
   DesignSprintEvidence,
   DesignSprintEvidenceDocument,
   DIA_POR_FASE,
@@ -60,11 +59,7 @@ export class DesignSprintService {
       const guardado = await nuevo.save();
       return this.toIDesignSprintEvidence(guardado);
     } catch (error) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 11000
-      ) {
+      if (error instanceof Error && 'code' in error && error.code === 11000) {
         throw new ConflictException(
           'Ya existe un registro para esta fase, equipo y proyecto',
         );
