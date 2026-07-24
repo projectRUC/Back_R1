@@ -25,13 +25,8 @@ export class EquiposService {
    * @returns El equipo creado con sus relaciones completas pobladas.
    */
   async create(createEquipoDto: CreateEquipoDto) {
-    const {
-      nombre,
-      nombreProyecto,
-      grupoId,
-      integrantes,
-      scrumMasterId,
-    } = createEquipoDto;
+    const { nombre, nombreProyecto, grupoId, integrantes, scrumMasterId } =
+      createEquipoDto;
 
     // Asegurarnos de que el scrumMasterId esté en la lista única de integrantes
     const integrantesSet = new Set(integrantes);
@@ -75,8 +70,9 @@ export class EquiposService {
 
       // 4. Obtener roles de equipo ('Scrum Master' y 'Developer') desde el catálogo
       const rolSm =
-        (await tx.rolEquipo.findUnique({ where: { rolEqNom: 'Scrum Master' } })) ??
-        (await tx.rolEquipo.findFirst({ where: { rolEqId: 1 } }));
+        (await tx.rolEquipo.findUnique({
+          where: { rolEqNom: 'Scrum Master' },
+        })) ?? (await tx.rolEquipo.findFirst({ where: { rolEqId: 1 } }));
       const rolDev =
         (await tx.rolEquipo.findUnique({ where: { rolEqNom: 'Developer' } })) ??
         (await tx.rolEquipo.findFirst({ where: { rolEqId: 2 } }));
@@ -206,13 +202,8 @@ export class EquiposService {
    * @param updateEquipoDto DTO con los campos parciales a modificar.
    */
   async update(id: number, updateEquipoDto: UpdateEquipoDto) {
-    const {
-      nombre,
-      nombreProyecto,
-      grupoId,
-      integrantes,
-      scrumMasterId,
-    } = updateEquipoDto;
+    const { nombre, nombreProyecto, grupoId, integrantes, scrumMasterId } =
+      updateEquipoDto;
 
     // 1. Verificar que el equipo exista antes de actualizar
     const equipoExistente = await this.findOne(id);
@@ -254,7 +245,8 @@ export class EquiposService {
       const datosEquipoUpdate: any = {};
       if (nombre !== undefined) datosEquipoUpdate.eqNom = nombre;
       if (grupoId !== undefined) datosEquipoUpdate.grupoId = grupoId;
-      if (scrumMasterId !== undefined) datosEquipoUpdate.scrumMasterId = scrumMasterId;
+      if (scrumMasterId !== undefined)
+        datosEquipoUpdate.scrumMasterId = scrumMasterId;
 
       if (Object.keys(datosEquipoUpdate).length > 0) {
         await tx.equipo.update({
@@ -288,11 +280,13 @@ export class EquiposService {
 
         // Obtener roles de equipo del catálogo
         const rolSm =
-          (await tx.rolEquipo.findUnique({ where: { rolEqNom: 'Scrum Master' } })) ??
-          (await tx.rolEquipo.findFirst({ where: { rolEqId: 1 } }));
+          (await tx.rolEquipo.findUnique({
+            where: { rolEqNom: 'Scrum Master' },
+          })) ?? (await tx.rolEquipo.findFirst({ where: { rolEqId: 1 } }));
         const rolDev =
-          (await tx.rolEquipo.findUnique({ where: { rolEqNom: 'Developer' } })) ??
-          (await tx.rolEquipo.findFirst({ where: { rolEqId: 2 } }));
+          (await tx.rolEquipo.findUnique({
+            where: { rolEqNom: 'Developer' },
+          })) ?? (await tx.rolEquipo.findFirst({ where: { rolEqId: 2 } }));
 
         if (!rolSm || !rolDev) {
           throw new BadRequestException(

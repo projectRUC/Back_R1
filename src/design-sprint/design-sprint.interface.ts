@@ -15,7 +15,7 @@ export enum FaseDesignSprint {
   BOCETAR = 'bocetar', // Martes
   DECIDIR = 'decidir', // Miércoles
   PROTOTIPAR = 'prototipar',
-  FINALIZADO = "FINALIZADO", // Jueves
+  FINALIZADO = 'FINALIZADO', // Jueves
 }
 
 /** Orden secuencial de las fases (usado para validar que no se salten días) */
@@ -32,8 +32,7 @@ export const DIA_POR_FASE: Record<FaseDesignSprint, string> = {
   [FaseDesignSprint.BOCETAR]: 'Martes',
   [FaseDesignSprint.DECIDIR]: 'Miércoles',
   [FaseDesignSprint.PROTOTIPAR]: 'Jueves',
-    [FaseDesignSprint.FINALIZADO]: 'Finalizado',
-
+  [FaseDesignSprint.FINALIZADO]: 'Finalizado',
 };
 
 // ============================================================================

@@ -1,6 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Comentario, ComentarioSchema } from 'src/database/schemas/common.schema';
+import {
+  Comentario,
+  ComentarioSchema,
+} from 'src/database/schemas/common.schema';
 import { FileEntity, FileSchema } from 'src/files/schemas/file.schema';
 
 @Schema()
@@ -86,7 +89,10 @@ export class Entrevista {
 }
 const EntrevistaSchema = SchemaFactory.createForClass(Entrevista);
 
-@Schema({ collection: 'sprint_designs', timestamps: { createdAt: 'created_at', updatedAt: false } })
+@Schema({
+  collection: 'sprint_designs',
+  timestamps: { createdAt: 'created_at', updatedAt: false },
+})
 export class SprintDesign extends Document {
   @Prop({ required: true, type: Number })
   eq_id: number;
