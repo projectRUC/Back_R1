@@ -3,44 +3,64 @@ import {
   Controller,
   Get,
   Param,
-  ParseEnumPipe,
   ParseIntPipe,
   Post,
 } from '@nestjs/common';
+
 import { DesignSprintService } from './design-sprint.service';
-import { CreateDesignSprintEvidenceDto } from './dto/create-design-sprint-evidence.dto';
-import { FaseDesignSprint } from './design-sprint.interface';
+
+import {
+  FaseDesignSprint,
+  IAvanceDesignSprint,
+  IDesignSprintEvidence,
+} from './design-sprint.interface';
+import { CreateDesignSprintEvidenceDto } from './dto/design-sprint.dto';
 
 @Controller('design-sprint')
 export class DesignSprintController {
   constructor(private readonly designSprintService: DesignSprintService) {}
 
+  /**
+   * Registra el avance de una fase del Design Sprint.
+   * Valida que la fase anterior ya haya sido registrada y que no exista
+   * un duplicado para el mismo equipo/proyecto/fase.
+   *
+   * POST /design-sprint/evidencias
+   */
   @Post('evidencias')
-  registrarAvance(@Body() dto: CreateDesignSprintEvidenceDto) {
-    return this.designSprintService.registrarAvance(dto);
+  async registrarEvidencia(
+    @Body() dto: CreateDesignSprintEvidenceDto,
+  ): Promise<IDesignSprintEvidence> {
+    return this.designSprintService.registrarEvidencia(dto);
   }
 
+  /**
+   * Devuelve el avance completo (las 4 fases, en orden) de un equipo
+   * dentro de un proyecto. Cada fase indica si ya fue iniciada,
+   * su fecha, comentarios y cantidad de archivos.
+   *
+   * GET /design-sprint/equipos/:equipoId/proyectos/:proyectoId
+   */
   @Get('equipos/:equipoId/proyectos/:proyectoId')
-  consultarAvance(
+  async obtenerAvance(
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Param('proyectoId') proyectoId: string,
-  ) {
-    return this.designSprintService.consultarAvancePorEquipo(
-      equipoId,
-      proyectoId,
-    );
+  ): Promise<IAvanceDesignSprint> {
+    return this.designSprintService.obtenerAvance(equipoId, proyectoId);
   }
 
+  /**
+   * Devuelve el detalle completo de UNA fase específica
+   * (archivos, comentarios, fecha de registro).
+   *
+   * GET /design-sprint/equipos/:equipoId/proyectos/:proyectoId/fases/:fase
+   */
   @Get('equipos/:equipoId/proyectos/:proyectoId/fases/:fase')
-  consultarFase(
+  async obtenerFase(
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Param('proyectoId') proyectoId: string,
-    @Param('fase', new ParseEnumPipe(FaseDesignSprint)) fase: FaseDesignSprint,
-  ) {
-    return this.designSprintService.consultarEvidenciasPorFase(
-      equipoId,
-      proyectoId,
-      fase,
-    );
+    @Param('fase') fase: FaseDesignSprint,
+  ): Promise<IDesignSprintEvidence> {
+    return this.designSprintService.obtenerFase(equipoId, proyectoId, fase);
   }
 }

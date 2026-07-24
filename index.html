@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Design Sprint + File Manager</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; background: #f9fafb; }
+    h1 { color: #1e293b; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+    section { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; }
+    h2 { margin-top: 0; color: #0f172a; font-size: 1.3rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; }
+    .form-group { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center; }
+    .form-group label { width: 120px; font-weight: 600; color: #334155; }
+    .form-group input, .form-group select, .form-group textarea { flex: 1; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 150px; }
+    .form-group textarea { min-height: 60px; }
+    .btn { background: #3b82f6; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn:hover { background: #2563eb; }
+    .btn-danger { background: #ef4444; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+    .result { background: #f1f5f9; padding: 0.75rem; border-radius: 4px; margin-top: 0.75rem; white-space: pre-wrap; font-size: 0.9rem; max-height: 250px; overflow: auto; border: 1px solid #e2e8f0; }
+    .file-list { margin: 0.5rem 0; }
+    .file-item { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid #e2e8f0; }
+    .file-url { font-size: 0.8rem; color: #3b82f6; cursor: pointer; }
+    .file-url:hover { text-decoration: underline; }
+    .inline-group { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .inline-group label { font-weight: 600; }
+    .tag { background: #dbeafe; color: #1e40af; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+
+<h1>🧪 Test Design Sprint + File Manager</h1>
+
+<div class="grid">
+
+  <!-- COLUMNA IZQUIERDA: Gestión de archivos -->
+  <div>
+    <section>
+      <h2>📁 Subir archivo</h2>
+      <form id="uploadForm">
+        <div class="form-group">
+          <label>Archivo *</label>
+          <input type="file" id="fileInput" required>
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <input type="text" id="categoryInput" placeholder="ej: evidencias">
+        </div>
+        <div class="form-group">
+          <label>Subido por</label>
+          <input type="text" id="uploadedByInput" placeholder="userId o nombre">
+        </div>
+        <button type="submit" class="btn">Subir</button>
+      </form>
+      <div id="uploadResult" class="result">Resultado de subida</div>
+    </section>
+
+    <section>
+      <h2>📋 Lista de archivos</h2>
+      <button class="btn btn-sm" id="refreshFilesBtn">↻ Refrescar</button>
+      <div id="fileList" class="file-list">
+        <p>Cargando...</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- COLUMNA DERECHA: Design Sprint -->
+  <div>
+    <section>
+      <h2>📝 Registrar evidencia</h2>
+      <form id="registerEvidenceForm">
+        <div class="form-group">
+          <label>equipoId *</label>
+          <input type="number" id="regEquipoId" required placeholder="1" value="1">
+        </div>
+        <div class="form-group">
+          <label>proyectoId *</label>
+          <input type="text" id="regProyectoId" required placeholder="MongoID" value="67e8d3c2b5a1f2d4e6c8f9a0">
+        </div>
+        <div class="form-group">
+          <label>Fase *</label>
+          <select id="regFase">
+            <option value="mapear">mapear</option>
+            <option value="bocetar">bocetar</option>
+            <option value="decidir">decidir</option>
+            <option value="prototipar">prototipar</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>URLs de archivos</label>
+          <input type="text" id="regArchivosUrls" placeholder="Separa con comas, o usa el botón 'Añadir desde lista'">
+          <button type="button" class="btn btn-sm" id="addSelectedUrlsBtn">➕ Añadir seleccionados</button>
+        </div>
+        <div class="form-group">
+          <label>Comentarios</label>
+          <textarea id="regComentarios" placeholder="Opcional"></textarea>
+        </div>
+        <button type="submit" class="btn">Registrar</button>
+      </form>
+      <div id="registerResult" class="result">Resultado</div>
+    </section>
+
+    <section>
+      <h2>📊 Consultar avance</h2>
+      <div class="inline-group">
+        <label>equipoId</label>
+        <input type="number" id="getEquipoId" value="1" style="width:80px;">
+        <label>proyectoId</label>
+        <input type="text" id="getProyectoId" value="67e8d3c2b5a1f2d4e6c8f9a0" style="width:200px;">
+        <button class="btn btn-sm" id="getAvanceBtn">Consultar</button>
+      </div>
+      <div id="avanceResult" class="result">Resultado</div>
+    </section>
+
+    <section>
+      <h2>🔍 Obtener fase específica</h2>
+      <div class="inline-group">
+        <label>equipoId</label>
+        <input type="number" id="faseEquipoId" value="1" style="width:80px;">
+        <label>proyectoId</label>
+        <input type="text" id="faseProyectoId" value="67e8d3c2b5a1f2d4e6c8f9a0" style="width:150px;">
+        <label>Fase</label>
+        <select id="faseSelect">
+          <option value="mapear">mapear</option>
+          <option value="bocetar">bocetar</option>
+          <option value="decidir">decidir</option>
+          <option value="prototipar">prototipar</option>
+        </select>
+        <button class="btn btn-sm" id="getFaseBtn">Consultar</button>
+      </div>
+      <div id="faseResult" class="result">Resultado</div>
+    </section>
+  </div>
+</div>
+
+<script>
+  // ==================== CONFIGURACIÓN ====================
+  const API_BASE = 'http://localhost:3000'; // ← Cambia si tu backend corre en otro puerto
+
+  // ==================== UTILS ====================
+  async function apiFetch(endpoint, options = {}) {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+    try {
+      const res = await fetch(url, options);
+      let data;
+      try { data = await res.json(); } catch { data = { error: 'No se pudo parsear respuesta' }; }
+      return { status: res.status, ok: res.ok, data };
+    } catch (err) {
+      return { status: 0, ok: false, data: { error: err.message } };
+    }
+  }
+
+  function displayResult(elementId, obj) {
+    document.getElementById(elementId).textContent = JSON.stringify(obj, null, 2);
+  }
+
+  // ==================== FILES ====================
+  async function loadFileList() {
+    const container = document.getElementById('fileList');
+    const result = await apiFetch('/files');
+    if (!result.ok) {
+      container.innerHTML = `<p>⚠️ Error al cargar: ${result.data?.error || 'desconocido'}</p>`;
+      return;
+    }
+    const files = result.data;
+    if (!files || files.length === 0) {
+      container.innerHTML = '<p>No hay archivos subidos.</p>';
+      return;
+    }
+    container.innerHTML = files.map(f => `
+      <div class="file-item">
+        <span><strong>${f.originalName}</strong> (${f.category || 'general'}) <span class="tag">${f.extension || ''}</span></span>
+        <span>
+          <span class="file-url" onclick="copyToClipboard('${f.url}')">${f.url}</span>
+          <button class="btn btn-sm btn-danger" onclick="deleteFile('${f._id}')">🗑️</button>
+          <input type="checkbox" class="file-select" value="${f.url}" data-id="${f._id}">
+        </span>
+      </div>
+    `).join('');
+  }
+
+  window.copyToClipboard = (text) => {
+    navigator.clipboard?.writeText(text).then(() => {
+      alert('URL copiada al portapapeles');
+    }).catch(() => {
+      const inp = document.createElement('input');
+      inp.value = text;
+      document.body.appendChild(inp);
+      inp.select();
+      document.execCommand('copy');
+      document.body.removeChild(inp);
+      alert('URL copiada');
+    });
+  };
+
+  window.deleteFile = async (id) => {
+    if (!confirm('¿Eliminar este archivo?')) return;
+    const result = await apiFetch(`/files/${id}`, { method: 'DELETE' });
+    if (result.ok) {
+      alert('Eliminado');
+      loadFileList();
+    } else {
+      alert('Error: ' + (result.data?.message || 'desconocido'));
+    }
+  };
+
+  // Subir archivo (con FormData)
+  document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files.length) {
+      alert('Selecciona un archivo');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('category', document.getElementById('categoryInput').value || '');
+    formData.append('uploadedBy', document.getElementById('uploadedByInput').value || '');
+
+    const result = await apiFetch('/files/upload', {
+      method: 'POST',
+      body: formData,
+      // No pongas Content-Type, fetch lo establece con el boundary
+    });
+    displayResult('uploadResult', result);
+    if (result.ok) {
+      loadFileList();
+      fileInput.value = '';
+    }
+  });
+
+  document.getElementById('refreshFilesBtn').addEventListener('click', loadFileList);
+
+  // ==================== DESIGN SPRINT ====================
+
+  // Registrar evidencia
+  document.getElementById('registerEvidenceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const equipoId = parseInt(document.getElementById('regEquipoId').value);
+    const proyectoId = document.getElementById('regProyectoId').value;
+    const fase = document.getElementById('regFase').value;
+    const archivosUrlsRaw = document.getElementById('regArchivosUrls').value;
+    const comentarios = document.getElementById('regComentarios').value;
+
+    if (!equipoId || !proyectoId) {
+      displayResult('registerResult', { error: 'equipoId y proyectoId son requeridos' });
+      return;
+    }
+
+    const body = { equipoId, proyectoId, fase, comentarios: comentarios || undefined };
+    if (archivosUrlsRaw) {
+      body.archivosUrls = archivosUrlsRaw.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    const result = await apiFetch('/design-sprint/evidencias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    displayResult('registerResult', result);
+  });
+
+  // Añadir URLs seleccionadas de la lista
+  document.getElementById('addSelectedUrlsBtn').addEventListener('click', () => {
+    const checkboxes = document.querySelectorAll('.file-select:checked');
+    const urls = Array.from(checkboxes).map(cb => cb.value);
+    if (!urls.length) {
+      alert('Selecciona al menos un archivo de la lista.');
+      return;
+    }
+    const input = document.getElementById('regArchivosUrls');
+    const current = input.value ? input.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const merged = [...current, ...urls];
+    input.value = merged.join(', ');
+    checkboxes.forEach(cb => cb.checked = false);
+  });
+
+  // Consultar avance
+  document.getElementById('getAvanceBtn').addEventListener('click', async () => {
+    const equipoId = parseInt(document.getElementById('getEquipoId').value);
+    const proyectoId = document.getElementById('getProyectoId').value;
+    if (!equipoId || !proyectoId) {
+      displayResult('avanceResult', { error: 'equipoId y proyectoId requeridos' });
+      return;
+    }
+    const url = `/design-sprint/equipos/${equipoId}/proyectos/${proyectoId}`;
+    const result = await apiFetch(url);
+    displayResult('avanceResult', result);
+  });
+
+  // Consultar fase específica
+  document.getElementById('getFaseBtn').addEventListener('click', async () => {
+    const equipoId = parseInt(document.getElementById('faseEquipoId').value);
+    const proyectoId = document.getElementById('faseProyectoId').value;
+    const fase = document.getElementById('faseSelect').value;
+    if (!equipoId || !proyectoId) {
+      displayResult('faseResult', { error: 'equipoId y proyectoId requeridos' });
+      return;
+    }
+    const url = `/design-sprint/equipos/${equipoId}/proyectos/${proyectoId}/fases/${fase}`;
+    const result = await apiFetch(url);
+    displayResult('faseResult', result);
+  });
+
+  // ==================== INICIALIZAR ====================
+  loadFileList();
+</script>
+
+</body>
+</html>
