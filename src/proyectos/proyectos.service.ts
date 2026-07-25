@@ -31,12 +31,32 @@ export class ProyectosService {
     return await nuevoProyecto.save();
   }
 
+  async getProyectos(): Promise<Proyecto[]> {
+    return await this.proyectoModel.find().exec();
+  }
+
+  async getProyectoById(id: string): Promise<Proyecto> {
+    const proyecto = await this.proyectoModel.findById(id).exec();
+    if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
+    return proyecto;
+  }
+
   async updateProyecto(id: string, dto: UpdateProyectoDto): Promise<Proyecto> {
     const proyecto = await this.proyectoModel.findByIdAndUpdate(
       id,
       { $set: dto },
       { new: true }
     );
+    if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
+    return proyecto;
+  }
+
+  async deleteProyecto(id: string): Promise<Proyecto> {
+    const activitiesCount = await this.actividadModel.countDocuments({ proyecto_id: id });
+    if (activitiesCount > 0) {
+      throw new ConflictException('No se puede borrar el proyecto porque existen actividades asociadas a este');
+    }
+    const proyecto = await this.proyectoModel.findByIdAndDelete(id).exec();
     if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
     return proyecto;
   }

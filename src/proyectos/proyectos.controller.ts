@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Put, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Put, Param, Patch, Delete, Get } from '@nestjs/common';
 import { ProyectosService } from './proyectos.service';
 import { CreateProyectoDto, UpdateProyectoDto, CreatePeriodoDto, UpdatePeriodoDto, AddComentarioDto, UpdateComentarioDto } from './dto/proyecto.dto';
 
@@ -11,9 +11,24 @@ export class ProyectosController {
     return this.proyectosService.createProyecto(createProyectoDto);
   }
 
+  @Get()
+  getProyectos() {
+    return this.proyectosService.getProyectos();
+  }
+
+  @Get(':id')
+  getProyectoById(@Param('id') id: string) {
+    return this.proyectosService.getProyectoById(id);
+  }
+
   @Put(':id')
   updateProyecto(@Param('id') id: string, @Body() updateProyectoDto: UpdateProyectoDto) {
     return this.proyectosService.updateProyecto(id, updateProyectoDto);
+  }
+
+  @Delete(':id')
+  deleteProyecto(@Param('id') id: string) {
+    return this.proyectosService.deleteProyecto(id);
   }
 
   // Parciales

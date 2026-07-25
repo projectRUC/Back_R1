@@ -49,6 +49,16 @@ export class ActividadesService {
     return await this.actividadModel.find({ proyecto_id: new Types.ObjectId(proyecto_id) }).exec();
   }
 
+  async getActividades(): Promise<Actividad[]> {
+    return await this.actividadModel.find().exec();
+  }
+
+  async getActividadById(id: string): Promise<Actividad> {
+    const actividad = await this.actividadModel.findById(id).exec();
+    if (!actividad) throw new NotFoundException('Actividad no encontrada');
+    return actividad;
+  }
+
   async updateActividad(id: string, dto: UpdateActividadDto): Promise<Actividad> {
     const actividad = await this.actividadModel.findById(id);
     if (!actividad) throw new NotFoundException('Actividad no encontrada');
@@ -70,6 +80,12 @@ export class ActividadesService {
 
     Object.assign(actividad, dto);
     return await actividad.save();
+  }
+
+  async deleteActividad(id: string): Promise<Actividad> {
+    const actividad = await this.actividadModel.findByIdAndDelete(id).exec();
+    if (!actividad) throw new NotFoundException('Actividad no encontrada');
+    return actividad;
   }
 
   async addComentario(id: string, dto: AddComentarioDto): Promise<Actividad> {

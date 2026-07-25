@@ -17,12 +17,27 @@ export class ActividadesController {
     return this.actividadesService.getActividadesByProyecto(proyecto_id);
   }
 
+  @Get()
+  getActividades() {
+    return this.actividadesService.getActividades();
+  }
+
+  @Get(':id')
+  getActividadById(@Param('id') id: string) {
+    return this.actividadesService.getActividadById(id);
+  }
+
   @Patch(':id')
   updateActividad(
     @Param('id') id: string,
     @Body() updateActividadDto: UpdateActividadDto
   ) {
     return this.actividadesService.updateActividad(id, updateActividadDto);
+  }
+
+  @Delete(':id')
+  deleteActividad(@Param('id') id: string) {
+    return this.actividadesService.deleteActividad(id);
   }
 
   @Post(':id/comentarios')
