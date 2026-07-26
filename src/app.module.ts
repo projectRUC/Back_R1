@@ -17,6 +17,7 @@ import { GruposModule } from './grupos/grupos.module';
 import { AiModule } from './ai/ai.module';
 import { ProyectosModule } from './proyectos/proyectos.module';
 import { ActividadesModule } from './actividades/actividades.module';
+import { HerramientasModule } from './herramientas/herramientas.module';
 @Module({
   imports: [
     // Variables de entorno
@@ -53,6 +54,7 @@ import { ActividadesModule } from './actividades/actividades.module';
     AiModule, // <--- Módulo de Inteligencia Artificial
     ProyectosModule,
     ActividadesModule,
+    HerramientasModule,
   ],
   controllers: [AppController],
   providers: [AppService],
