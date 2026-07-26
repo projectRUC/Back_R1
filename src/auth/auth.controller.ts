@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -60,7 +61,7 @@ export class AuthController {
     res.cookie('access_token', accessToken, {
       httpOnly: true, // JS del cliente no puede acceder
       secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
-      sameSite: 'strict', // Protección anti-CSRF
+      sameSite: 'lax', // Permite envío entre puertos locales y navegación segura
       maxAge: 8 * 60 * 60 * 1000, // 8 horas en milisegundos
     });
 
@@ -79,23 +80,26 @@ export class AuthController {
     res.clearCookie('access_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
     return { message: 'Sesión cerrada correctamente.' };
   }
 
   /**
-   * POST /auth/me
-   * Retorna los datos del usuario actualmente autenticado (del JWT).
-   * Útil para que el frontend sepa quién tiene la sesión activa.
+   * POST /auth/me y GET /auth/me
+   * Retorna los datos del usuario actualmente autenticado completos (perfil ligero).
    */
   @Post('me')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  me(@Req() req: Request & { user: JwtPayload }) {
-    return {
-      id: req.user.sub,
-      rol: req.user.rol,
-    };
+  async postMe(@Req() req: Request & { user: JwtPayload }) {
+    return this.authService.getProfile(req.user.sub);
+  }
+
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Req() req: Request & { user: JwtPayload }) {
+    return this.authService.getProfile(req.user.sub);
   }
 }
