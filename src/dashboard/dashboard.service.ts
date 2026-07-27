@@ -78,6 +78,7 @@ export class DashboardService {
         const mongoP = mongoProyectos.find((mp) => mp.nombre === p.proyectoNom);
         return {
           id: p.proyectoId,
+          equipoId: e.eqId,
           nombreProyecto: p.proyectoNom,
           nombreEquipo: e.eqNom,
           fechaInicio: mongoP?.fecha_inicio || p.createdAt || null,
@@ -112,6 +113,7 @@ export class DashboardService {
 
       return {
         id: e.eqId,
+        proyectoId: e.proyecto?.proyectoId || null,
         nombreEquipo: e.eqNom,
         nombreProyecto: e.proyecto?.proyectoNom || 'Sin proyecto asignado',
         grupo: e.grupo?.grupoNom || '',
@@ -221,6 +223,7 @@ export class DashboardService {
         const mongoP = mongoProyectos.find((mp) => mp.nombre === p.proyectoNom);
         return {
           id: p.proyectoId,
+          equipoId: e.eqId,
           nombreProyecto: p.proyectoNom,
           nombreEquipo: e.eqNom,
           fechaInicio: mongoP?.fecha_inicio || p.createdAt || null,
