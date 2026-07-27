@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -20,7 +21,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // REGISTER
@@ -36,9 +37,11 @@ export class AuthService {
    * - No retornamos el passwordHash en la respuesta.
    */
   async register(dto: RegisterDto) {
+    const correoNormalizado = dto.correo.trim().toLowerCase();
+
     // 1. Verificar que el correo no esté registrado ya
     const existingUser = await this.prisma.usuario.findUnique({
-      where: { usuEmail: dto.correo },
+      where: { usuEmail: correoNormalizado },
     });
     if (existingUser) {
       throw new ConflictException('Ya existe un usuario con ese correo.');
@@ -63,7 +66,7 @@ export class AuthService {
         usuNom: dto.nombre,
         usuApp: dto.apellidoPaterno,
         usuApm: dto.apellidoMaterno ?? null,
-        usuEmail: dto.correo,
+        usuEmail: correoNormalizado,
         usuPass: passwordHash, // Siempre se guarda el hash, nunca el texto plano
         rolId: dto.rolId,
       },
@@ -99,9 +102,11 @@ export class AuthService {
    * - El payload del JWT incluye `sub` (ID) y `rol` para RBAC.
    */
   async login(dto: LoginDto): Promise<{ accessToken: string }> {
+    const correoNormalizado = dto.correo.trim().toLowerCase();
+
     // 1. Buscar al usuario por correo, incluyendo su rol
     const usuario = await this.prisma.usuario.findUnique({
-      where: { usuEmail: dto.correo },
+      where: { usuEmail: correoNormalizado },
       include: { rolUsuario: true },
     });
 
@@ -125,4 +130,39 @@ export class AuthService {
 
     return { accessToken };
   }
+
+  /**
+   * Obtiene el perfil del usuario autenticado incluyendo nombre, correo y rol.
+   * Optimiza el frontend eliminando la necesidad de consultas adicionales de usuario.
+   */
+  async getProfile(userId: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { usuId: userId },
+      include: {
+        rolUsuario: true,
+        grupo: true,
+      },
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado en el sistema.');
+    }
+
+    const nombreCompleto = [
+      usuario.usuNom,
+      usuario.usuApp,
+      usuario.usuApm,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return {
+      id: usuario.usuId,
+      nombre: nombreCompleto,
+      correo: usuario.usuEmail,
+      rol: usuario.rolUsuario.rolUsuNom,
+      grupo: usuario.grupo ? usuario.grupo.grupoNom : null,
+    };
+  }
 }
+

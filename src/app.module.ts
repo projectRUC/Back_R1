@@ -18,6 +18,7 @@ import { AiModule } from './ai/ai.module';
 import { ProyectosModule } from './proyectos/proyectos.module';
 import { ActividadesModule } from './actividades/actividades.module';
 import { HerramientasModule } from './herramientas/herramientas.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 @Module({
   imports: [
     // Variables de entorno
@@ -55,8 +56,10 @@ import { HerramientasModule } from './herramientas/herramientas.module';
     ProyectosModule,
     ActividadesModule,
     HerramientasModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+
