@@ -695,6 +695,7 @@ export class DashboardService {
       fecha_fin: p.fecha_fin,
       objetivo: `Parcial ${idx + 1}: Metas de evaluación y entregables.`,
       comentarios: [],
+      aprobado: false,
     }));
 
     await mongoDoc.save();
