@@ -152,6 +152,21 @@ export class DashboardController {
   }
 
   /**
+   * PATCH /dashboard/detalle-proyecto-equipo/:equipoId/parciales/:numParcial/aprobar
+   * Aprueba la planeación de un parcial. Uso exclusivo del Docente.
+   */
+  @Patch('detalle-proyecto-equipo/:equipoId/parciales/:numParcial/aprobar')
+  @Roles('Docente')
+  async aprobarParcial(
+    @Param('equipoId', ParseIntPipe) equipoId: number,
+    @Param('numParcial', ParseIntPipe) numParcial: number,
+    @Body() body: { comentarios: string },
+    @Req() req: any,
+  ) {
+    return this.dashboardService.aprobarParcialBFF(equipoId, numParcial, body, req.user.sub);
+  }
+
+  /**
    * POST /dashboard/detalle-proyecto-equipo/:equipoId/actividades
    * Crea una actividad vinculada al proyecto y equipo con usuario asignado.
    */

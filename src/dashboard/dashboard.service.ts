@@ -718,6 +718,29 @@ export class DashboardService {
     return { message: 'Parcial modificado con éxito.' };
   }
 
+  async aprobarParcialBFF(
+    equipoId: number,
+    numParcial: number,
+    dto: { comentarios: string },
+    docenteId: number
+  ) {
+    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+    const parcial = mongoDoc.parciales?.find((p) => p.num_parcial === Number(numParcial));
+    if (!parcial) {
+      throw new NotFoundException('El Parcial especificado no existe.');
+    }
+    
+    parcial.aprobado = true;
+    parcial.docenteAprobadorId = docenteId;
+    parcial.fechaAprobacion = new Date();
+    if (dto.comentarios !== undefined) {
+      parcial.comentariosDocente = dto.comentarios;
+    }
+    
+    await mongoDoc.save();
+    return { message: 'Parcial aprobado con éxito.' };
+  }
+
   async createActividadBFF(
     equipoId: number,
     dto: {

@@ -17,4 +17,20 @@ export class AiController {
       output: result,
     };
   }
+
+  @Post('generate-criteria')
+  @HttpCode(HttpStatus.OK)
+  async generateCriteria(@Body() body: { titulo: string; descripcion: string }) {
+    const prompt = `Eres un asistente de Scrum experto. Genera una lista de 3 a 5 Criterios de Aceptación claros y testeables para la siguiente actividad o historia de usuario.
+    
+    Título: ${body.titulo}
+    Descripción: ${body.descripcion}
+    
+    Devuelve los criterios en formato Markdown con checkboxes (ej. - [ ] El usuario puede...). No incluyas texto extra, saludos ni explicaciones, solo la lista de criterios.`;
+    
+    const result = await this.aiService.generateStructuredResponse({ prompt });
+    return {
+      criterios: result,
+    };
+  }
 }
