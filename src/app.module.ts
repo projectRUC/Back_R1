@@ -19,6 +19,8 @@ import { ProyectosModule } from './proyectos/proyectos.module';
 import { ActividadesModule } from './actividades/actividades.module';
 import { HerramientasModule } from './herramientas/herramientas.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ScrumModule } from './scrum/scrum.module';
+import { NotificacionesModule } from './notificaciones/notificaciones.module';
 @Module({
   imports: [
     // Variables de entorno
@@ -57,6 +59,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     ActividadesModule,
     HerramientasModule,
     DashboardModule,
+    ScrumModule,
+    NotificacionesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
