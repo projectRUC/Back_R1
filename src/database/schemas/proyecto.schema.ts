@@ -18,6 +18,19 @@ export class Parcial {
 
   @Prop({ type: [ComentarioSchema], default: [] })
   comentarios: Comentario[];
+
+  // Campos para Aprobación Docente
+  @Prop({ type: Boolean, default: false })
+  aprobado: boolean;
+
+  @Prop({ type: Number })
+  docenteAprobadorId?: number;
+
+  @Prop()
+  fechaAprobacion?: Date;
+
+  @Prop()
+  comentariosDocente?: string;
 }
 const ParcialSchema = SchemaFactory.createForClass(Parcial);
 

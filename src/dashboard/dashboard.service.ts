@@ -695,6 +695,7 @@ export class DashboardService {
       fecha_fin: p.fecha_fin,
       objetivo: `Parcial ${idx + 1}: Metas de evaluación y entregables.`,
       comentarios: [],
+      aprobado: false,
     }));
 
     await mongoDoc.save();
@@ -716,6 +717,29 @@ export class DashboardService {
     if (dto.objetivo !== undefined) parcial.objetivo = dto.objetivo;
     await mongoDoc.save();
     return { message: 'Parcial modificado con éxito.' };
+  }
+
+  async aprobarParcialBFF(
+    equipoId: number,
+    numParcial: number,
+    dto: { comentarios: string },
+    docenteId: number
+  ) {
+    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+    const parcial = mongoDoc.parciales?.find((p) => p.num_parcial === Number(numParcial));
+    if (!parcial) {
+      throw new NotFoundException('El Parcial especificado no existe.');
+    }
+    
+    parcial.aprobado = true;
+    parcial.docenteAprobadorId = docenteId;
+    parcial.fechaAprobacion = new Date();
+    if (dto.comentarios !== undefined) {
+      parcial.comentariosDocente = dto.comentarios;
+    }
+    
+    await mongoDoc.save();
+    return { message: 'Parcial aprobado con éxito.' };
   }
 
   async createActividadBFF(
