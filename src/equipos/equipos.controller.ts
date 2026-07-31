@@ -30,6 +30,16 @@ export class EquiposController {
   constructor(private readonly equiposService: EquiposService) {}
 
   /**
+   * GET /equipos
+   * Retorna la lista de todos los equipos.
+   */
+  @Get()
+  @Roles('Alumno', 'Docente', 'Scrum Master')
+  async findAll() {
+    return this.equiposService.findAll();
+  }
+
+  /**
    * POST /equipos
    * Registra un nuevo equipo PAEC, crea su proyecto, lo asocia al grupo
    * e inscribe a sus integrantes con su rol correspondiente (Scrum Master o Developer).
