@@ -1,4 +1,3 @@
-// design-sprint.controller.ts
 import {
   Controller,
   Post,
@@ -18,6 +17,7 @@ import { CreateMapeoDto } from './dto/create-mapeo.dto';
 import { CreateBocetoDto } from './dto/create-boceto.dto';
 import { CreatePuntuacionDto } from './dto/create-puntuacion.dto';
 import { CreatePrototipoDto } from './dto/create-prototipo.dto';
+import { AddComentarioDto } from './dto/add-comentario.dto';
 
 const multerConfig = {
   storage: diskStorage({
@@ -39,7 +39,6 @@ export class DesignSprintController {
     return this.designSprintService.crear(Number(eq_id), proyecto_id);
   }
 
-  // 1. PRIMERO: Captura las consultas generales con Query Params (?eq_id=...&proyecto_id=...)
   @Get()
   findByEquipoProyecto(
     @Query('eq_id') eq_id: string,
@@ -48,7 +47,6 @@ export class DesignSprintController {
     return this.designSprintService.findByEquipoYProyecto(Number(eq_id), proyecto_id);
   }
 
-  // 2. DESPUÉS: Captura peticiones directas por ID (/design-sprint/123)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.designSprintService.findById(id);
@@ -78,19 +76,20 @@ export class DesignSprintController {
     return this.designSprintService.registrarBoceto(id, dto, files, req.user?.id);
   }
 
-// Miércoles — Decidir (votar un boceto)
-@Post(':id/boceto/:bocetoId/puntuacion')
-puntuarBoceto(
-  @Param('id') id: string,
-  @Param('bocetoId') bocetoId: string,
-  @Body() dto: CreatePuntuacionDto,
-) {
-  return this.designSprintService.puntuarBoceto(id, bocetoId, {
-    ...dto,
-    usu_id: Number(dto.usu_id),
-    valor: Number(dto.valor ?? 1),
-  });
-}
+  // Miércoles — Decidir (votar un boceto)
+  @Post(':id/boceto/:bocetoId/puntuacion')
+  puntuarBoceto(
+    @Param('id') id: string,
+    @Param('bocetoId') bocetoId: string,
+    @Body() dto: CreatePuntuacionDto,
+  ) {
+    return this.designSprintService.puntuarBoceto(id, bocetoId, {
+      ...dto,
+      usu_id: Number(dto.usu_id),
+      valor: Number(dto.valor ?? 1),
+    });
+  }
+
   // Jueves — Prototipar
   @Post(':id/prototipo')
   @UseInterceptors(FilesInterceptor('archivos', 5, multerConfig))
@@ -101,5 +100,49 @@ puntuarBoceto(
     @Req() req: any,
   ) {
     return this.designSprintService.registrarPrototipo(id, dto, files, req.user?.id);
+  }
+
+  // ---------- RETROALIMENTACIÓN DOCENTE ----------
+
+  // Soporta /mapeo/comentarios y /mapeo/comentario
+  @Post([':id/mapeo/comentarios', ':id/mapeo/comentario'])
+  agregarComentarioMapeo(
+    @Param('id') id: string,
+    @Body() dto: AddComentarioDto,
+  ) {
+    return this.designSprintService.agregarComentarioMapeo(id, dto);
+  }
+
+  // Soporta /bocetos/:bocetoId/comentarios, /boceto/:bocetoId/comentarios y sus formas en singular
+  @Post([
+    ':id/bocetos/:bocetoId/comentarios',
+    ':id/bocetos/:bocetoId/comentario',
+    ':id/boceto/:bocetoId/comentarios',
+    ':id/boceto/:bocetoId/comentario',
+  ])
+  agregarComentarioBoceto(
+    @Param('id') id: string,
+    @Param('bocetoId') bocetoId: string,
+    @Body() dto: AddComentarioDto,
+  ) {
+    return this.designSprintService.agregarComentarioBoceto(id, bocetoId, dto);
+  }
+
+  // Soporta /prototipo/comentarios y /prototipo/comentario
+  @Post([':id/prototipo/comentarios', ':id/prototipo/comentario'])
+  agregarComentarioPrototipo(
+    @Param('id') id: string,
+    @Body() dto: AddComentarioDto,
+  ) {
+    return this.designSprintService.agregarComentarioPrototipo(id, dto);
+  }
+
+  // Soporta /comentarios-generales y /comentario-general
+  @Post([':id/comentarios-generales', ':id/comentario-general'])
+  agregarComentarioGeneral(
+    @Param('id') id: string,
+    @Body() dto: AddComentarioDto,
+  ) {
+    return this.designSprintService.agregarComentarioGeneral(id, dto);
   }
 }

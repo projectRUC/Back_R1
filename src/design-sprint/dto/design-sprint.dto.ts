@@ -81,8 +81,6 @@ export class RegistrarDecisionDto {
   @Type(() => ComentarioDto)
   comentario?: ComentarioDto;
 
-  // Si viene en true, este boceto se marca como GANADOR
-  // y el sprint pasa a la fase PROTOTIPAR.
   @IsOptional()
   @IsBoolean()
   marcarGanador?: boolean;
