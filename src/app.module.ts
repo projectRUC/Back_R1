@@ -23,6 +23,7 @@ import { ScrumModule } from './scrum/scrum.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AlertasModule } from './alertas/alertas.module';
+import { AlumnosModule } from './alumnos/alumnos.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { AlertasModule } from './alertas/alertas.module';
     ScrumModule,
     NotificacionesModule,
     AlertasModule,
+    AlumnosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
