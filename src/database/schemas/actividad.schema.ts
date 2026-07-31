@@ -1,7 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Comentario, ComentarioSchema } from './common.schema';
-import { EstatusActividad } from 'src/common/providers/enums/estatus-actividad.enum';
 
 @Schema()
 export class Asignado {
@@ -26,10 +25,7 @@ export class Evidencia {
 }
 const EvidenciaSchema = SchemaFactory.createForClass(Evidencia);
 
-@Schema({
-  collection: 'actividades',
-  timestamps: { createdAt: 'created_at', updatedAt: false },
-})
+@Schema({ collection: 'actividades', timestamps: { createdAt: 'created_at', updatedAt: false } })
 export class Actividad extends Document {
   @Prop({ required: true, type: Number })
   eq_id: number;
@@ -42,13 +38,6 @@ export class Actividad extends Document {
 
   @Prop()
   descripcion: string;
-
-  @Prop({
-    type: String,
-    enum: EstatusActividad,
-    default: EstatusActividad.SIN_EMPEZAR,
-  })
-  estatus: EstatusActividad;
 
   @Prop({ type: [String], default: [] })
   criterios_aceptacion: string[];
