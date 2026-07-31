@@ -19,6 +19,16 @@ export class EquiposService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Obtiene todos los equipos registrados (básico para filtros).
+   */
+  async findAll() {
+    return await this.prisma.equipo.findMany({
+      orderBy: { eqNom: 'asc' },
+      select: { eqId: true, eqNom: true }
+    });
+  }
+
+  /**
    * Crea un nuevo equipo PAEC de forma transaccional.
    *
    * @param createEquipoDto DTO con los datos del equipo, proyecto, grupo e integrantes.
