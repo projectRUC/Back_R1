@@ -9,4 +9,5 @@ export enum FaseDesignSprint {
 export enum StatusBoceto {
   PENDIENTE = 'PENDIENTE',
   GANADOR = 'GANADOR',
+
 }

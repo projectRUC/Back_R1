@@ -260,28 +260,35 @@ export class DesignSprintService {
     boceto.comentarios.push({
       usu_id: dto.usu_id,
       texto: dto.texto,
-      comentario: dto.texto, // 👈 CORREGIDO: Inclusión obligatoria para Mongoose
+      comentario: dto.texto,
       fecha: new Date(),
     } as any);
 
     return sprint.save();
   }
 
-  async agregarComentarioPrototipo(id: string, dto: AddComentarioDto) {
-    const sprint = await this.findById(id);
-    if (!sprint.prototipo) {
-      throw new BadRequestException('Aún no existe el Prototipo para comentar');
-    }
+async agregarComentarioPrototipo(id: string, dto: AddComentarioDto) {
+  const sprint = await this.findById(id);
 
-    sprint.prototipo.comentarios.push({
-      usu_id: dto.usu_id,
-      texto: dto.texto,
-      comentario: dto.texto, // 👈 CORREGIDO: Inclusión obligatoria para Mongoose
-      fecha: new Date(),
-    } as any);
-
-    return sprint.save();
+  // Si no existe la estructura de prototipo, la inicializamos
+  if (!sprint.prototipo) {
+    sprint.prototipo = {
+      nombre_prototipo: '',
+      descripcion: '',
+      archivos: [],
+      comentarios: [],
+    } as any;
   }
+
+  sprint.prototipo.comentarios.push({
+    usu_id: dto.usu_id,
+    texto: dto.texto,
+    comentario: dto.texto,
+    fecha: new Date(),
+  } as any);
+
+  return sprint.save();
+}
 
   async agregarComentarioGeneral(id: string, dto: AddComentarioDto) {
     const sprint = await this.findById(id);
@@ -289,7 +296,7 @@ export class DesignSprintService {
     sprint.comentarios_generales.push({
       usu_id: dto.usu_id,
       texto: dto.texto,
-      comentario: dto.texto, // 👈 CORREGIDO: Inclusión obligatoria para Mongoose
+      comentario: dto.texto,
       fecha: new Date(),
     } as any);
 

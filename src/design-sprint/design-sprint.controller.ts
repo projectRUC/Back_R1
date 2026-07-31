@@ -102,9 +102,10 @@ export class DesignSprintController {
     return this.designSprintService.registrarPrototipo(id, dto, files, req.user?.id);
   }
 
-  // ---------- ENDPOINTS PARA COMENTARIOS DEL DOCENTE ----------
+  // ---------- RETROALIMENTACIÓN DOCENTE ----------
 
-  @Post(':id/mapeo/comentario')
+  // Soporta /mapeo/comentarios y /mapeo/comentario
+  @Post([':id/mapeo/comentarios', ':id/mapeo/comentario'])
   agregarComentarioMapeo(
     @Param('id') id: string,
     @Body() dto: AddComentarioDto,
@@ -112,7 +113,13 @@ export class DesignSprintController {
     return this.designSprintService.agregarComentarioMapeo(id, dto);
   }
 
-  @Post(':id/boceto/:bocetoId/comentario')
+  // Soporta /bocetos/:bocetoId/comentarios, /boceto/:bocetoId/comentarios y sus formas en singular
+  @Post([
+    ':id/bocetos/:bocetoId/comentarios',
+    ':id/bocetos/:bocetoId/comentario',
+    ':id/boceto/:bocetoId/comentarios',
+    ':id/boceto/:bocetoId/comentario',
+  ])
   agregarComentarioBoceto(
     @Param('id') id: string,
     @Param('bocetoId') bocetoId: string,
@@ -121,7 +128,8 @@ export class DesignSprintController {
     return this.designSprintService.agregarComentarioBoceto(id, bocetoId, dto);
   }
 
-  @Post(':id/prototipo/comentario')
+  // Soporta /prototipo/comentarios y /prototipo/comentario
+  @Post([':id/prototipo/comentarios', ':id/prototipo/comentario'])
   agregarComentarioPrototipo(
     @Param('id') id: string,
     @Body() dto: AddComentarioDto,
@@ -129,7 +137,8 @@ export class DesignSprintController {
     return this.designSprintService.agregarComentarioPrototipo(id, dto);
   }
 
-  @Post(':id/comentario-general')
+  // Soporta /comentarios-generales y /comentario-general
+  @Post([':id/comentarios-generales', ':id/comentario-general'])
   agregarComentarioGeneral(
     @Param('id') id: string,
     @Body() dto: AddComentarioDto,

@@ -1,4 +1,3 @@
-// design-sprint.module.ts
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DesignSprintService } from './design-sprint.service';
