@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 import { Comentario, ComentarioSchema } from './common.schema';
 
 @Schema()
@@ -18,6 +18,19 @@ export class Parcial {
 
   @Prop({ type: [ComentarioSchema], default: [] })
   comentarios: Comentario[];
+
+  // Campos para Aprobación Docente
+  @Prop({ type: Boolean, default: false })
+  aprobado: boolean;
+
+  @Prop({ type: Number })
+  docenteAprobadorId?: number;
+
+  @Prop()
+  fechaAprobacion?: Date;
+
+  @Prop()
+  comentariosDocente?: string;
 }
 const ParcialSchema = SchemaFactory.createForClass(Parcial);
 
@@ -40,7 +53,10 @@ export class Sprint {
 }
 const SprintSchema = SchemaFactory.createForClass(Sprint);
 
-@Schema({ collection: 'proyectos', timestamps: { createdAt: 'created_at', updatedAt: false } })
+@Schema({
+  collection: 'proyectos',
+  timestamps: { createdAt: 'created_at', updatedAt: false },
+})
 export class Proyecto extends Document {
   @Prop({ required: true })
   nombre: string;

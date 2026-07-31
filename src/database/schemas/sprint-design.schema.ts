@@ -1,6 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Comentario, ComentarioSchema } from './common.schema';
+import {
+  Comentario,
+  ComentarioSchema,
+} from 'src/database/schemas/common.schema';
+import { FileEntity, FileSchema } from 'src/files/schemas/file.schema';
 
 @Schema()
 export class Mapeo {
@@ -13,8 +17,8 @@ export class Mapeo {
   @Prop()
   enfoque: string;
 
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
+  @Prop({ type: [FileSchema], default: [] })
+  archivos: FileEntity[];
 
   @Prop({ type: [ComentarioSchema], default: [] })
   comentarios: Comentario[];
@@ -45,8 +49,8 @@ export class Boceto {
   @Prop()
   status: string;
 
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
+  @Prop({ type: [FileSchema], default: [] })
+  archivos: FileEntity[];
 
   @Prop({ type: [PuntuacionSchema], default: [] })
   puntuaciones: Puntuacion[];
@@ -64,8 +68,8 @@ export class Prototipo {
   @Prop()
   descripcion: string;
 
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
+  @Prop({ type: [FileSchema], default: [] })
+  archivos: FileEntity[];
 
   @Prop({ type: [ComentarioSchema], default: [] })
   comentarios: Comentario[];
@@ -77,15 +81,18 @@ export class Entrevista {
   @Prop()
   descripcion: string;
 
-  @Prop({ type: [String], default: [] })
-  archivos: string[];
+  @Prop({ type: [FileSchema], default: [] })
+  archivos: FileEntity[];
 
   @Prop({ type: [ComentarioSchema], default: [] })
   comentarios: Comentario[];
 }
 const EntrevistaSchema = SchemaFactory.createForClass(Entrevista);
 
-@Schema({ collection: 'sprint_designs', timestamps: { createdAt: 'created_at', updatedAt: false } })
+@Schema({
+  collection: 'sprint_designs',
+  timestamps: { createdAt: 'created_at', updatedAt: false },
+})
 export class SprintDesign extends Document {
   @Prop({ required: true, type: Number })
   eq_id: number;
