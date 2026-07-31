@@ -21,6 +21,9 @@ import { HerramientasModule } from './herramientas/herramientas.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ScrumModule } from './scrum/scrum.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AlertasModule } from './alertas/alertas.module';
+
 @Module({
   imports: [
     // Variables de entorno
@@ -36,6 +39,9 @@ import { NotificacionesModule } from './notificaciones/notificaciones.module';
       }),
       inject: [ConfigService],
     }),
+
+    // Cron Jobs
+    ScheduleModule.forRoot(),
 
     // Archivos estáticos
     ServeStaticModule.forRoot({
@@ -61,6 +67,7 @@ import { NotificacionesModule } from './notificaciones/notificaciones.module';
     DashboardModule,
     ScrumModule,
     NotificacionesModule,
+    AlertasModule,
   ],
   controllers: [AppController],
   providers: [AppService],
