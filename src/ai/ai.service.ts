@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import {
   Injectable,
   InternalServerErrorException,
@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GenerateAiDto } from './dto/generate-ai.dto';
+import { PitchCoachResponseDto } from 'src/design-sprint/dto/pitch-coach-response.dto';
 
 @Injectable()
 export class AiService {
@@ -73,4 +74,91 @@ export class AiService {
       );
     }
   }
+
+  async generatePitchCoachAnalysis(
+      projectData: Record<string, any>,
+    ): Promise<PitchCoachResponseDto> {
+      try {
+        this.logger.log(`Procesando Pitch Coach en modelo: ${this.modelName}`);
+  
+        const systemInstruction = `
+          Eres un consultor experto en proyectos de innovación y startups.
+          Tu trabajo es evaluar la viabilidad de un proyecto basado estrictamente en su resumen, problemáticas y evidencias.
+          Sé estricto, crítico pero constructivo.
+          Debes responder EXCLUSIVAMENTE en formato JSON cumpliendo con el esquema indicado.
+        `;
+  
+        const prompt = `
+          Por favor analiza el siguiente proyecto:
+  
+          - RESUMEN / DESCRIPCIÓN DEL PROYECTO:
+          ${projectData.resumen || 'Sin información proporcionada.'}
+  
+          - PROBLEMÁTICAS IDENTIFICADAS:
+          ${JSON.stringify(projectData.problematicas || [], null, 2)}
+  
+          - EVIDENCIAS Y PROTOTIPO:
+          ${JSON.stringify(projectData.evidencias || [], null, 2)}
+        `;
+  
+        const response = await this.ai.models.generateContent({
+          model: this.modelName,
+          contents: prompt,
+          config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                puntosFuertes: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description:
+                    'Lista de aspectos fuertes e innovadores del proyecto',
+                },
+                riesgos: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description:
+                    'Lista de riesgos principales, vacíos o vulnerabilidades del proyecto',
+                },
+                preguntasCriterio: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description:
+                    'Exactamente 3 preguntas difíciles que un experto real o inversionista le haría al equipo',
+                },
+              },
+              required: ['puntosFuertes', 'riesgos', 'preguntasCriterio'],
+            },
+          },
+        });
+  
+        if (!response.text) {
+          throw new InternalServerErrorException(
+            'La IA no devolvió una respuesta válida.',
+          );
+        }
+  
+        return JSON.parse(response.text) as PitchCoachResponseDto;
+      } catch (error) {
+        // 1. Solución al error 'error is of type unknown' (Línea 105)
+        const errorMessage =
+          error instanceof Error ? error.message : 'Error desconocido';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+  
+        this.logger.error(
+          `Error al comunicarse con Gemini Pitch Coach: ${errorMessage}`,
+          errorStack,
+        );
+  
+        if (error instanceof InternalServerErrorException) {
+          throw error;
+        }
+  
+        throw new InternalServerErrorException(
+          'El servicio de Inteligencia Artificial no está disponible en este momento.',
+        );
+      }
+    }
 }
