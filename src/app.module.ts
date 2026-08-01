@@ -25,6 +25,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AlertasModule } from './alertas/alertas.module';
 import { AlumnosModule } from './alumnos/alumnos.module';
 
+// 1. IMPORTANTE: Importa el módulo de Pitch Coach
+
 @Module({
   imports: [
     // Variables de entorno
@@ -61,7 +63,7 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     GruposModule,
     FilesModule,
     DesignSprintModule,
-    AiModule, // <--- Módulo de Inteligencia Artificial
+    AiModule,
     ProyectosModule,
     ActividadesModule,
     HerramientasModule,
@@ -70,9 +72,9 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     NotificacionesModule,
     AlertasModule,
     AlumnosModule,
+    
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-
