@@ -21,6 +21,8 @@ import { HerramientasModule } from './herramientas/herramientas.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ScrumModule } from './scrum/scrum.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AlertasModule } from './alertas/alertas.module';
 import { AlumnosModule } from './alumnos/alumnos.module';
 
 // 1. IMPORTANTE: Importa el módulo de Pitch Coach
@@ -40,6 +42,9 @@ import { AlumnosModule } from './alumnos/alumnos.module';
       }),
       inject: [ConfigService],
     }),
+
+    // Cron Jobs
+    ScheduleModule.forRoot(),
 
     // Archivos estáticos
     ServeStaticModule.forRoot({
@@ -65,6 +70,7 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     DashboardModule,
     ScrumModule,
     NotificacionesModule,
+    AlertasModule,
     AlumnosModule,
     
   ],

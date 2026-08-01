@@ -6,12 +6,17 @@ import { EstatusActividad } from '../common/providers/enums/estatus-actividad.en
 import { Proyecto } from '../database/schemas/proyecto.schema';
 import { CreateActividadDto, UpdateActividadDto, AddEvidenciaDto, UpdateEvidenciaDto } from './dto/actividad.dto';
 import { AddComentarioDto, UpdateComentarioDto } from '../proyectos/dto/proyecto.dto';
+import { AlertasService } from '../alertas/alertas.service';
+import { PrismaService } from '../database/prisma.service';
+import { TipoAlerta } from '../database/schemas/alerta.schema';
 
 @Injectable()
 export class ActividadesService {
   constructor(
     @InjectModel(Actividad.name) private actividadModel: Model<Actividad>,
     @InjectModel(Proyecto.name) private proyectoModel: Model<Proyecto>,
+    private readonly alertasService: AlertasService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async createActividad(dto: CreateActividadDto): Promise<Actividad> {
@@ -75,6 +80,29 @@ export class ActividadesService {
       if (dto.parcial !== undefined && dto.parcial !== null) {
         const parcialExists = proyecto.parciales.some(p => p.num_parcial === dto.parcial);
         if (!parcialExists) throw new BadRequestException(`El parcial ${dto.parcial} no existe en el proyecto`);
+      }
+    }
+
+    // Intercepción Criterio 2: Alertar si se marca terminada sin evidencias
+    if (dto.estatus === EstatusActividad.TERMINADO && actividad.estatus !== EstatusActividad.TERMINADO) {
+      const tieneEvidencia = actividad.evidencias && actividad.evidencias.length > 0;
+      const tieneComentarios = actividad.comentarios && actividad.comentarios.length > 0;
+
+      if (!tieneEvidencia && !tieneComentarios) {
+        // Encontrar al Scrum Master
+        const equipo = await this.prisma.equipo.findUnique({
+          where: { eqId: actividad.eq_id },
+          select: { scrumMasterId: true },
+        });
+
+        if (equipo && equipo.scrumMasterId) {
+          await this.alertasService.crearAlerta({
+            scrum_master_id: equipo.scrumMasterId,
+            actividad_id: actividad._id as any,
+            tipo: TipoAlerta.EVIDENCIA_FALTANTE,
+            mensaje: `La actividad "${actividad.nom_actividad}" fue marcada como "Terminada" pero no cuenta con comentarios ni evidencias.`,
+          });
+        }
       }
     }
 
