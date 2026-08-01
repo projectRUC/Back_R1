@@ -10,6 +10,7 @@ import { CreateMapeoDto } from './dto/create-mapeo.dto';
 import { CreateBocetoDto } from './dto/create-boceto.dto';
 import { CreatePuntuacionDto } from './dto/create-puntuacion.dto';
 import { CreatePrototipoDto } from './dto/create-prototipo.dto';
+import { AddComentarioDto } from './dto/add-comentario.dto';
 import { SprintDesign } from 'src/database/schemas/sprint-design.schema';
 
 @Injectable()
@@ -64,9 +65,8 @@ export class DesignSprintService {
     const sprint = await this.sprintModel
       .findOne({ eq_id, proyecto_id: parsedProyectoId })
       .exec();
-    
-    // Retornar null o un objeto vacío evita lanzar 404 estricto si aún no ha sido creado
-    if (!sprint) return null; 
+
+    if (!sprint) return null;
     return sprint;
   }
 
@@ -91,7 +91,13 @@ export class DesignSprintService {
       enfoque: dto.enfoque,
       archivos,
       comentarios: dto.comentario
-        ? [{ usu_id: Number(uploadedBy) || null, texto: dto.comentario } as any]
+        ? [
+            {
+              usu_id: Number(uploadedBy) || null,
+              texto: dto.comentario,
+              comentario: dto.comentario,
+            } as any,
+          ]
         : [],
     } as any;
 
@@ -123,7 +129,13 @@ export class DesignSprintService {
       archivos,
       puntuaciones: [],
       comentarios: dto.comentario
-        ? [{ usu_id: dto.usu_id, texto: dto.comentario } as any]
+        ? [
+            {
+              usu_id: dto.usu_id,
+              texto: dto.comentario,
+              comentario: dto.comentario,
+            } as any,
+          ]
         : [],
     } as any);
 
@@ -131,7 +143,55 @@ export class DesignSprintService {
     return sprint.save();
   }
 
+  // ---------- FASE: DECIDIR (Miércoles) — votación de bocetos ----------
+  async puntuarBoceto(id: string, bocetoId: string, dto: CreatePuntuacionDto) {
+    const sprint = await this.findById(id);
 
+    if (!sprint.bocetos || sprint.bocetos.length === 0) {
+      throw new BadRequestException(
+        'No puedes registrar Decidir: la fase Bocetar no tiene entregas',
+      );
+    }
+
+    const boceto = (sprint.bocetos as any).id(bocetoId);
+    if (!boceto) throw new NotFoundException('Boceto no encontrado');
+
+    const usuIdNum = Number(dto.usu_id);
+    const indexVoto = boceto.puntuaciones.findIndex(
+      (p: any) => p.usu_id === usuIdNum,
+    );
+
+    const comentarioObj = dto.comentario
+      ? {
+          usu_id: usuIdNum,
+          texto: dto.comentario,
+          comentario: dto.comentario,
+        }
+      : undefined;
+
+    if (indexVoto >= 0) {
+      if (dto.valor === 0 || boceto.puntuaciones[indexVoto].valor === dto.valor) {
+        boceto.puntuaciones.splice(indexVoto, 1);
+      } else {
+        boceto.puntuaciones[indexVoto].valor = dto.valor;
+        if (dto.comentario) {
+          boceto.puntuaciones[indexVoto].comentario = comentarioObj;
+        }
+      }
+    } else {
+      boceto.puntuaciones.push({
+        usu_id: usuIdNum,
+        valor: dto.valor ?? 1,
+        comentario: comentarioObj,
+      });
+    }
+
+    if (sprint.status === 'boceto' || sprint.status === 'decidir') {
+      sprint.status = 'prototipo';
+    }
+
+    return sprint.save();
+  }
 
   // ---------- FASE: PROTOTIPAR (Jueves) ----------
   async registrarPrototipo(
@@ -156,11 +216,90 @@ export class DesignSprintService {
       descripcion: dto.descripcion,
       archivos,
       comentarios: dto.comentario
-        ? [{ usu_id: Number(uploadedBy) || null, texto: dto.comentario } as any]
+        ? [
+            {
+              usu_id: Number(uploadedBy) || null,
+              texto: dto.comentario,
+              comentario: dto.comentario,
+            } as any,
+          ]
         : [],
     } as any;
 
     sprint.status = 'prototipo_completado';
+    return sprint.save();
+  }
+
+  // ---------- RETROALIMENTACIÓN DOCENTE POR ETAPA ----------
+
+  async agregarComentarioMapeo(sprintId: string, dto: { texto: string; usu_id: number }) {
+    return await this.sprintModel.findByIdAndUpdate(
+      sprintId,
+      {
+        $push: {
+          'mapeo.comentarios': {
+            usu_id: dto.usu_id,
+            texto: dto.texto,
+            comentario: dto.texto,
+            fecha: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    );
+  }
+
+  async agregarComentarioBoceto(id: string, bocetoId: string, dto: AddComentarioDto) {
+    const sprint = await this.findById(id);
+    const boceto = (sprint.bocetos as any).id(bocetoId);
+
+    if (!boceto) {
+      throw new NotFoundException('Boceto no encontrado');
+    }
+
+    boceto.comentarios.push({
+      usu_id: dto.usu_id,
+      texto: dto.texto,
+      comentario: dto.texto,
+      fecha: new Date(),
+    } as any);
+
+    return sprint.save();
+  }
+
+async agregarComentarioPrototipo(id: string, dto: AddComentarioDto) {
+  const sprint = await this.findById(id);
+
+  // Si no existe la estructura de prototipo, la inicializamos
+  if (!sprint.prototipo) {
+    sprint.prototipo = {
+      nombre_prototipo: '',
+      descripcion: '',
+      archivos: [],
+      comentarios: [],
+    } as any;
+  }
+
+  sprint.prototipo.comentarios.push({
+    usu_id: dto.usu_id,
+    texto: dto.texto,
+    comentario: dto.texto,
+    fecha: new Date(),
+  } as any);
+
+  return sprint.save();
+}
+
+  async agregarComentarioGeneral(id: string, dto: AddComentarioDto) {
+    const sprint = await this.findById(id);
+
+    sprint.comentarios_generales.push({
+      usu_id: dto.usu_id,
+      texto: dto.texto,
+      comentario: dto.texto,
+      fecha: new Date(),
+    } as any);
+
     return sprint.save();
   }
 
@@ -180,54 +319,4 @@ export class DesignSprintService {
 
     return guardados.map((f) => f.toObject());
   }
-
-// ---------- FASE: DECIDIR (Miércoles) — votación de bocetos ----------
-async puntuarBoceto(id: string, bocetoId: string, dto: CreatePuntuacionDto) {
-  const sprint = await this.findById(id);
-
-  if (!sprint.bocetos || sprint.bocetos.length === 0) {
-    throw new BadRequestException(
-      'No puedes registrar Decidir: la fase Bocetar no tiene entregas',
-    );
-  }
-
-  const boceto = (sprint.bocetos as any).id(bocetoId);
-  if (!boceto) throw new NotFoundException('Boceto no encontrado');
-
-  const usuIdNum = Number(dto.usu_id);
-  const indexVoto = boceto.puntuaciones.findIndex(
-    (p: any) => p.usu_id === usuIdNum,
-  );
-
-  if (indexVoto >= 0) {
-    // Si vuelve a votar con valor 0 o el mismo valor, se elimina el voto (Toggle)
-    if (dto.valor === 0 || boceto.puntuaciones[indexVoto].valor === dto.valor) {
-      boceto.puntuaciones.splice(indexVoto, 1);
-    } else {
-      // Actualizar valor del voto
-      boceto.puntuaciones[indexVoto].valor = dto.valor;
-      if (dto.comentario) {
-        boceto.puntuaciones[indexVoto].comentario = {
-          usu_id: usuIdNum,
-          texto: dto.comentario,
-        };
-      }
-    }
-  } else {
-    // Si no ha votado, agregar el nuevo voto
-    boceto.puntuaciones.push({
-      usu_id: usuIdNum,
-      valor: dto.valor ?? 1,
-      comentario: dto.comentario
-        ? ({ usu_id: usuIdNum, texto: dto.comentario } as any)
-        : undefined,
-    });
-  }
-
-  if (sprint.status === 'boceto' || sprint.status === 'decidir') {
-    sprint.status = 'prototipo';
-  }
-
-  return sprint.save();
-}
 }

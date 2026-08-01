@@ -881,5 +881,262 @@ export class DashboardService {
 
     return { message: 'Estatus de la actividad actualizado exitosamente.', estatus: statusLim };
   }
-}
 
+  // ==========================================
+  // METRICS & DASHBOARDS METHODS (CU-20 - CU-25)
+  // ==========================================
+
+  /**
+   * CU-20: Dashboard Docente
+   * Obtiene métricas generales de todos los equipos o filtrado por grupo y parcial.
+   */
+  async getDocenteMetrics(grupoId?: number, parcial?: number) {
+    const filterEq: any = {};
+    if (grupoId) filterEq.grupoId = Number(grupoId);
+    
+    const equipos = await this.prisma.equipo.findMany({
+      where: filterEq,
+      include: { proyecto: true }
+    });
+    
+    const eqIds = equipos.map(e => e.eqId);
+    const filterAct: any = { eq_id: { $in: eqIds } };
+    if (parcial) filterAct.parcial = Number(parcial);
+
+    const actividades = await this.actividadModel.find(filterAct).lean().exec();
+    
+    // Histograma de avances por equipo (Porcentaje de tareas completadas)
+    const equiposMetrics = equipos.map(eq => {
+      const actsEq = actividades.filter(a => a.eq_id === eq.eqId);
+      const totalActs = actsEq.length;
+      const completadas = actsEq.filter(a => a.estatus === EstatusActividad.TERMINADO).length;
+      const porcentaje = totalActs > 0 ? Math.round((completadas / totalActs) * 100) : 0;
+      
+      const totalEstimacion = actsEq.reduce((acc, a) => acc + (a.estimacion || 0), 0);
+      const estimacionCompletada = actsEq
+        .filter(a => a.estatus === EstatusActividad.TERMINADO)
+        .reduce((acc, a) => acc + (a.estimacion || 0), 0);
+
+      // Esfuerzo por integrante exclusivo de este equipo
+      const esfuerzoEq: Record<string, { completado: number, pendiente: number }> = {};
+      actsEq.forEach(a => {
+        a.asignados?.forEach(asig => {
+          const memberKey = asig.usu_nom || 'Desconocido';
+          if (!esfuerzoEq[memberKey]) esfuerzoEq[memberKey] = { completado: 0, pendiente: 0 };
+          if (a.estatus === EstatusActividad.TERMINADO) esfuerzoEq[memberKey].completado += (a.estimacion || 0);
+          else esfuerzoEq[memberKey].pendiente += (a.estimacion || 0);
+        });
+      });
+      const miembrosEsfuerzo = Object.keys(esfuerzoEq).map(nombre => ({
+        nombre,
+        ...esfuerzoEq[nombre]
+      }));
+
+      return {
+        equipoId: eq.eqId,
+        nombreEquipo: eq.eqNom,
+        nombreProyecto: eq.proyecto?.proyectoNom || 'Sin proyecto',
+        porcentaje,
+        totalActividades: totalActs,
+        actividadesCompletadas: completadas,
+        totalStoryPoints: totalEstimacion,
+        storyPointsCompletados: estimacionCompletada,
+        miembrosEsfuerzo
+      };
+    });
+
+    const proyectosActivos = equiposMetrics.filter(e => e.porcentaje < 100).length;
+    const proyectosFinalizados = equiposMetrics.filter(e => e.porcentaje === 100 && e.totalActividades > 0).length;
+    
+    const pendientes = actividades.filter(a => a.estatus !== EstatusActividad.TERMINADO).length;
+    const vencidas = actividades.filter(a => a.estatus !== EstatusActividad.TERMINADO && a.fecha_fin && new Date(a.fecha_fin) < new Date()).length;
+
+    return {
+      histograma: equiposMetrics,
+      resumen: {
+        proyectosActivos,
+        proyectosFinalizados,
+        actividadesPendientes: pendientes,
+        actividadesVencidas: vencidas
+      }
+    };
+  }
+
+  /**
+   * CU-21 & CU-25: Dashboard Scrum Master & Métricas del Sprint
+   */
+  async getScrumMasterMetrics(equipoId: number, sprint: number) {
+    const equipo = await this.prisma.equipo.findUnique({
+      where: { eqId: Number(equipoId) },
+      include: {
+        equiposAlumno: { include: { usuario: true } },
+        scrumMaster: true
+      }
+    });
+
+    if (!equipo) throw new NotFoundException('Equipo no encontrado.');
+
+    const actividades = await this.actividadModel.find({
+      eq_id: Number(equipoId),
+      sprint: Number(sprint)
+    }).lean().exec();
+
+    // SP Planificados vs Completados
+    const spPlanificados = actividades.reduce((acc, a) => acc + (a.estimacion || 0), 0);
+    const spCompletados = actividades
+      .filter(a => a.estatus === EstatusActividad.TERMINADO)
+      .reduce((acc, a) => acc + (a.estimacion || 0), 0);
+
+    // Esfuerzo por integrante
+    const esfuerzoPorIntegrante = {};
+    actividades.forEach(a => {
+      a.asignados?.forEach(asig => {
+        if (!esfuerzoPorIntegrante[asig.usu_nom]) {
+          esfuerzoPorIntegrante[asig.usu_nom] = { completado: 0, pendiente: 0 };
+        }
+        if (a.estatus === EstatusActividad.TERMINADO) {
+          esfuerzoPorIntegrante[asig.usu_nom].completado += (a.estimacion || 0);
+        } else {
+          esfuerzoPorIntegrante[asig.usu_nom].pendiente += (a.estimacion || 0);
+        }
+      });
+    });
+
+    const miembrosEsfuerzo = Object.keys(esfuerzoPorIntegrante).map(nombre => ({
+      nombre,
+      ...esfuerzoPorIntegrante[nombre]
+    }));
+
+    // Burndown (Aproximación basada en fechas de fin)
+    const hoy = new Date();
+    // Identificar las fechas del sprint basado en las actividades (o idealmente del esquema de Sprint si estuviera vinculado)
+    const fechas = actividades.map(a => a.fecha_fin ? new Date(a.fecha_fin).getTime() : 0).filter(f => f > 0);
+    const fechaMin = fechas.length > 0 ? new Date(Math.min(...fechas)) : new Date();
+    const fechaMax = fechas.length > 0 ? new Date(Math.max(...fechas)) : new Date(new Date().setDate(hoy.getDate() + 7));
+    
+    // Generar timeline para el burndown
+    const dias = Math.ceil((fechaMax.getTime() - fechaMin.getTime()) / (1000 * 3600 * 24)) || 1;
+    const burndown: Array<{ fecha: string; spRestantes: number; ideal: number }> = [];
+    let spRestantes = spPlanificados;
+    
+    for (let i = 0; i <= dias; i++) {
+      const currentDay = new Date(fechaMin.getTime() + (i * 1000 * 3600 * 24));
+      // Restar los SP de las actividades finalizadas hasta este día
+      const actsCompletadasHoy = actividades.filter(a => 
+        a.estatus === EstatusActividad.TERMINADO && 
+        a.fecha_fin && new Date(a.fecha_fin).toDateString() === currentDay.toDateString()
+      );
+      spRestantes -= actsCompletadasHoy.reduce((acc, a) => acc + (a.estimacion || 0), 0);
+      
+      burndown.push({
+        fecha: currentDay.toISOString().split('T')[0],
+        spRestantes,
+        ideal: Math.max(0, spPlanificados - (spPlanificados / dias) * i)
+      });
+    }
+
+    const pendientes = actividades.filter(a => a.estatus !== EstatusActividad.TERMINADO);
+    const atrasadas = pendientes.filter(a => a.fecha_fin && new Date(a.fecha_fin) < hoy);
+
+    return {
+      spPlanificados,
+      spCompletados,
+      esfuerzoPorIntegrante: miembrosEsfuerzo,
+      burndown,
+      actividadesPendientes: pendientes.length,
+      actividadesAtrasadas: atrasadas.length
+    };
+  }
+
+  /**
+   * CU-22: Dashboard Personal
+   */
+  async getPersonalMetrics(usuId: number) {
+    const actividades = await this.actividadModel.find({
+      'asignados.usu_id': Number(usuId)
+    }).lean().exec();
+
+    const pendientes = actividades.filter(a => a.estatus !== EstatusActividad.TERMINADO);
+    const completadas = actividades.filter(a => a.estatus === EstatusActividad.TERMINADO);
+    
+    const horasRegistradas = completadas.reduce((acc, a) => acc + (a.estimacion || 0), 0);
+    const horasPendientes = pendientes.reduce((acc, a) => acc + (a.estimacion || 0), 0);
+    const total = horasRegistradas + horasPendientes;
+    const porcentaje = total > 0 ? Math.round((horasRegistradas / total) * 100) : 0;
+
+    return {
+      tareasPendientes: pendientes.length,
+      tareasCompletadas: completadas.length,
+      horasRegistradas,
+      horasPendientes,
+      porcentajeAvance: porcentaje,
+      listaPendientes: pendientes.map(a => ({
+        id: a._id,
+        nombre: a.nom_actividad,
+        estatus: a.estatus,
+        fechaFin: a.fecha_fin,
+        estimacion: a.estimacion
+      }))
+    };
+  }
+
+  /**
+   * CU-23: Gantt y Planeación
+   */
+  async getProyectoGantt(equipoId: number) {
+    const actividades = await this.actividadModel.find({
+      eq_id: Number(equipoId)
+    }).lean().exec();
+
+    return actividades.map(a => ({
+      id: String(a._id),
+      name: a.nom_actividad,
+      start: a.fecha_inicio,
+      end: a.fecha_fin,
+      progress: a.estatus === EstatusActividad.TERMINADO ? 100 : (a.estatus === EstatusActividad.EN_PROCESO ? 50 : 0),
+      dependencies: '', // Se podría expandir luego
+      type: 'task',
+      project: String(a.proyecto_id)
+    }));
+  }
+
+  /**
+   * CU-24: Kanban Board
+   */
+  async getKanbanBoard(equipoId: number, sprint?: number) {
+    const query: any = { eq_id: Number(equipoId) };
+    if (sprint) query.sprint = Number(sprint);
+
+    const actividades = await this.actividadModel.find(query).lean().exec();
+    
+    const board: Record<string, any[]> = {
+      [EstatusActividad.SIN_EMPEZAR]: [],
+      [EstatusActividad.EN_PROCESO]: [],
+      [EstatusActividad.PRUEBA]: [],
+      [EstatusActividad.TERMINADO]: []
+    };
+
+    actividades.forEach(a => {
+      const status = a.estatus || EstatusActividad.SIN_EMPEZAR;
+      if (board[status]) {
+        board[status].push({
+          id: String(a._id),
+          nombre: a.nom_actividad,
+          estimacion: a.estimacion,
+          asignados: a.asignados,
+          prioridad: a.prioridad
+        });
+      } else {
+        board[EstatusActividad.SIN_EMPEZAR].push({
+          id: String(a._id),
+          nombre: a.nom_actividad,
+          estimacion: a.estimacion,
+          asignados: a.asignados,
+          prioridad: a.prioridad
+        });
+      }
+    });
+
+    return board;
+  }
+}
