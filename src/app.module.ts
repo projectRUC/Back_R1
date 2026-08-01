@@ -23,6 +23,8 @@ import { ScrumModule } from './scrum/scrum.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { AlumnosModule } from './alumnos/alumnos.module';
 
+// 1. IMPORTANTE: Importa el módulo de Pitch Coach
+
 @Module({
   imports: [
     // Variables de entorno
@@ -56,7 +58,7 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     GruposModule,
     FilesModule,
     DesignSprintModule,
-    AiModule, // <--- Módulo de Inteligencia Artificial
+    AiModule,
     ProyectosModule,
     ActividadesModule,
     HerramientasModule,
@@ -64,9 +66,9 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     ScrumModule,
     NotificacionesModule,
     AlumnosModule,
+    
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-

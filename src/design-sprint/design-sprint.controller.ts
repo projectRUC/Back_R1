@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   Query,
   Req,
+  NotFoundException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -18,6 +19,8 @@ import { CreateBocetoDto } from './dto/create-boceto.dto';
 import { CreatePuntuacionDto } from './dto/create-puntuacion.dto';
 import { CreatePrototipoDto } from './dto/create-prototipo.dto';
 import { AddComentarioDto } from './dto/add-comentario.dto';
+import { PitchCoachResponseDto } from './dto/pitch-coach-response.dto';
+import { AiService } from 'src/ai/ai.service';
 
 const multerConfig = {
   storage: diskStorage({
@@ -32,7 +35,10 @@ const multerConfig = {
 
 @Controller('design-sprint')
 export class DesignSprintController {
-  constructor(private readonly designSprintService: DesignSprintService) {}
+  constructor(
+    private readonly designSprintService: DesignSprintService,
+    private readonly aiService: AiService, // <-- CORREGIDO: Se agrega 'private readonly'
+  ) {}
 
   @Post()
   crear(@Body('eq_id') eq_id: number, @Body('proyecto_id') proyecto_id: string) {
@@ -144,5 +150,58 @@ export class DesignSprintController {
     @Body() dto: AddComentarioDto,
   ) {
     return this.designSprintService.agregarComentarioGeneral(id, dto);
+  }
+
+  // ---------- IA PITCH COACH ----------
+
+  @Post(':id/ai-pitch-coach')
+  async runPitchCoach(@Param('id') id: string): Promise<PitchCoachResponseDto> {
+    const project = await this.designSprintService.findById(id);
+
+    if (!project) {
+      throw new NotFoundException(`El Design Sprint con ID ${id} no existe.`);
+    }
+
+    const doc = project as any;
+
+    // 1. Extraemos el resumen (Buscamos en la fase de mapeo/prototipo o raíz)
+    const resumen =
+      doc.mapeo?.meta_a_largo_plazo ||
+      doc.prototipo?.descripcion ||
+      doc.resumen ||
+      doc.descripcion ||
+      'Proyecto enfocado en la solución de problemas mediante un producto/servicio innovador.';
+
+    // 2. Extraemos las problemáticas (Buscamos preguntas Cmo Podramos / mapeo / retos)
+    const rawProblematicas =
+      doc.mapeo?.preguntas_como_podriamos ||
+      doc.problematicas ||
+      doc.retos;
+
+    const problematicas =
+      Array.isArray(rawProblematicas) && rawProblematicas.length > 0
+        ? rawProblematicas
+        : ['Falta de validación clara de la propuesta de valor con clientes potenciales'];
+
+    // 3. Extraemos las evidencias (Buscamos enlaces de prototipo, bocetos o archivos adjuntos)
+    const evidencias: string[] = [];
+
+    if (doc.prototipo?.enlace) evidencias.push(`Enlace al prototipo: ${doc.prototipo.enlace}`);
+    if (doc.prototipo?.archivos?.length) evidencias.push(`Archivos de prototipo subidos: ${doc.prototipo.archivos.length}`);
+    if (doc.bocetos?.length) evidencias.push(`Cantidad de bocetos registrados: ${doc.bocetos.length}`);
+    if (doc.evidencias?.length) evidencias.push(...doc.evidencias);
+
+    if (evidencias.length === 0) {
+      evidencias.push('Prototipo interactivo en proceso y mapa de experiencia cargado.');
+    }
+
+    // 4. Formateamos el objeto para consumirlo en el servicio de Gemini
+    const projectData = {
+      resumen,
+      problematicas,
+      evidencias,
+    };
+
+    return await this.aiService.generatePitchCoachAnalysis(projectData);
   }
 }
