@@ -257,4 +257,61 @@ export class DashboardController {
   async getDocenteAlumnos() {
     return this.dashboardService.getDocenteAlumnos();
   }
+  /**
+   * GET /dashboard/metrics/docente
+   * CU-20: Métricas generales del docente
+   */
+  @Get('metrics/docente')
+  @Roles('Docente')
+  async getDocenteMetrics(@Req() req: any) {
+    const { grupoId, parcial } = req.query;
+    return this.dashboardService.getDocenteMetrics(grupoId, parcial);
+  }
+
+  /**
+   * GET /dashboard/metrics/scrum-master/:equipoId/sprint/:sprint
+   * CU-21 & CU-25: Métricas del sprint
+   */
+  @Get('metrics/scrum-master/:equipoId/sprint/:sprint')
+  @Roles('Scrum Master', 'Docente')
+  async getScrumMasterMetrics(
+    @Param('equipoId', ParseIntPipe) equipoId: number,
+    @Param('sprint', ParseIntPipe) sprint: number
+  ) {
+    return this.dashboardService.getScrumMasterMetrics(equipoId, sprint);
+  }
+
+  /**
+   * GET /dashboard/metrics/personal
+   * CU-22: Dashboard personal del integrante
+   */
+  @Get('metrics/personal')
+  @Roles('Alumno', 'Scrum Master')
+  async getPersonalMetrics(@Req() req: Request & { user: JwtPayload }) {
+    return this.dashboardService.getPersonalMetrics(req.user.sub);
+  }
+
+  /**
+   * GET /dashboard/proyectos/:equipoId/gantt
+   * CU-23: Gantt Chart del proyecto
+   */
+  @Get('proyectos/:equipoId/gantt')
+  @Roles('Docente', 'Scrum Master', 'Alumno')
+  async getProyectoGantt(@Param('equipoId', ParseIntPipe) equipoId: number) {
+    return this.dashboardService.getProyectoGantt(equipoId);
+  }
+
+  /**
+   * GET /dashboard/kanban/:equipoId
+   * CU-24: Tablero Kanban del Sprint
+   */
+  @Get('kanban/:equipoId')
+  @Roles('Docente', 'Scrum Master', 'Alumno')
+  async getKanbanBoard(
+    @Param('equipoId', ParseIntPipe) equipoId: number,
+    @Req() req: any
+  ) {
+    const { sprint } = req.query;
+    return this.dashboardService.getKanbanBoard(equipoId, sprint);
+  }
 }
