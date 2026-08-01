@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   NotFoundException,
+  Patch,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -20,6 +21,7 @@ import { CreatePuntuacionDto } from './dto/create-puntuacion.dto';
 import { CreatePrototipoDto } from './dto/create-prototipo.dto';
 import { AddComentarioDto } from './dto/add-comentario.dto';
 import { PitchCoachResponseDto } from './dto/pitch-coach-response.dto';
+import { UpdateVoBoDto } from './dto/update-vobo.dto';
 import { AiService } from 'src/ai/ai.service';
 
 const multerConfig = {
@@ -150,6 +152,15 @@ export class DesignSprintController {
     @Body() dto: AddComentarioDto,
   ) {
     return this.designSprintService.agregarComentarioGeneral(id, dto);
+  }
+
+  // ---------- VALIDACIÓN Y VOBO (Viernes) ----------
+  @Patch(':id/vobo')
+  actualizarVoBo(
+    @Param('id') id: string,
+    @Body() dto: UpdateVoBoDto,
+  ) {
+    return this.designSprintService.actualizarVoBo(id, dto);
   }
 
   // ---------- IA PITCH COACH ----------

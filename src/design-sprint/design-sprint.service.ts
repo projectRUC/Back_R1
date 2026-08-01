@@ -11,6 +11,7 @@ import { CreateBocetoDto } from './dto/create-boceto.dto';
 import { CreatePuntuacionDto } from './dto/create-puntuacion.dto';
 import { CreatePrototipoDto } from './dto/create-prototipo.dto';
 import { AddComentarioDto } from './dto/add-comentario.dto';
+import { UpdateVoBoDto } from './dto/update-vobo.dto';
 import { SprintDesign } from 'src/database/schemas/sprint-design.schema';
 
 @Injectable()
@@ -79,6 +80,10 @@ export class DesignSprintService {
   ) {
     const sprint = await this.findById(id);
 
+    if (sprint.validacion_experto?.vobo_docente) {
+      throw new BadRequestException('El ciclo de ideación ya cuenta con el Visto Bueno del docente y no puede ser modificado');
+    }
+
     if (sprint.mapeo?.proyecto_problema) {
       throw new BadRequestException('La fase Mapear ya fue registrada para este ciclo');
     }
@@ -114,6 +119,10 @@ export class DesignSprintService {
   ) {
     const sprint = await this.findById(id);
 
+    if (sprint.validacion_experto?.vobo_docente) {
+      throw new BadRequestException('El ciclo de ideación ya cuenta con el Visto Bueno del docente y no puede ser modificado');
+    }
+
     if (!sprint.mapeo?.proyecto_problema) {
       throw new BadRequestException(
         'No puedes registrar Bocetar: la fase Mapear (día hábil anterior) no ha sido iniciada',
@@ -146,6 +155,10 @@ export class DesignSprintService {
   // ---------- FASE: DECIDIR (Miércoles) — votación de bocetos ----------
   async puntuarBoceto(id: string, bocetoId: string, dto: CreatePuntuacionDto) {
     const sprint = await this.findById(id);
+
+    if (sprint.validacion_experto?.vobo_docente) {
+      throw new BadRequestException('El ciclo de ideación ya cuenta con el Visto Bueno del docente y no puede ser modificado');
+    }
 
     if (!sprint.bocetos || sprint.bocetos.length === 0) {
       throw new BadRequestException(
@@ -201,6 +214,10 @@ export class DesignSprintService {
     uploadedBy?: string,
   ) {
     const sprint = await this.findById(id);
+
+    if (sprint.validacion_experto?.vobo_docente) {
+      throw new BadRequestException('El ciclo de ideación ya cuenta con el Visto Bueno del docente y no puede ser modificado');
+    }
 
     const hayVotacion = sprint.bocetos?.some((b) => b.puntuaciones?.length > 0);
     if (!hayVotacion) {
@@ -299,6 +316,29 @@ async agregarComentarioPrototipo(id: string, dto: AddComentarioDto) {
       comentario: dto.texto,
       fecha: new Date(),
     } as any);
+
+    return sprint.save();
+  }
+
+  // ---------- FASE: VALIDACION Y VOBO (Viernes) ----------
+  async actualizarVoBo(id: string, dto: UpdateVoBoDto) {
+    const sprint = await this.findById(id);
+
+    if (!sprint.validacion_experto) {
+      sprint.validacion_experto = {} as any;
+    }
+
+    if (dto.nombre_experto !== undefined) sprint.validacion_experto.nombre_experto = dto.nombre_experto;
+    if (dto.profesion_institucion !== undefined) sprint.validacion_experto.profesion_institucion = dto.profesion_institucion;
+    if (dto.comentarios_viabilidad !== undefined) sprint.validacion_experto.comentarios_viabilidad = dto.comentarios_viabilidad;
+    if (dto.dictamen !== undefined) sprint.validacion_experto.dictamen = dto.dictamen;
+    
+    if (dto.vobo_docente !== undefined) {
+      sprint.validacion_experto.vobo_docente = dto.vobo_docente;
+      if (dto.vobo_docente === true) {
+        sprint.status = 'validado';
+      }
+    }
 
     return sprint.save();
   }
