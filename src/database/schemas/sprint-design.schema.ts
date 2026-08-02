@@ -89,6 +89,25 @@ export class Entrevista {
 }
 const EntrevistaSchema = SchemaFactory.createForClass(Entrevista);
 
+@Schema({ timestamps: { createdAt: 'created_at', updatedAt: false } })
+export class ValidacionExperto {
+  @Prop()
+  nombre_experto: string;
+
+  @Prop()
+  profesion_institucion: string;
+
+  @Prop()
+  comentarios_viabilidad: string;
+
+  @Prop()
+  dictamen: string; // 'Aprobado' | 'No Aprobado'
+
+  @Prop({ default: false })
+  vobo_docente: boolean;
+}
+const ValidacionExpertoSchema = SchemaFactory.createForClass(ValidacionExperto);
+
 @Schema({
   collection: 'sprint_designs',
   timestamps: { createdAt: 'created_at', updatedAt: false },
@@ -114,6 +133,9 @@ export class SprintDesign extends Document {
 
   @Prop({ type: [EntrevistaSchema], default: [] })
   entrevistas: Entrevista[];
+
+  @Prop({ type: ValidacionExpertoSchema })
+  validacion_experto: ValidacionExperto;
 
   @Prop({ type: [ComentarioSchema], default: [] })
   comentarios_generales: Comentario[];
