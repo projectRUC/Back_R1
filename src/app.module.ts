@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { join } from 'path';
 
 import { AppController } from './app.controller';
@@ -29,6 +31,11 @@ import { AlumnosModule } from './alumnos/alumnos.module';
 
 @Module({
   imports: [
+    // Rate Limiting OWASP (10 peticiones por minuto por IP)
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 10,
+    }]),
     // Variables de entorno
     ConfigModule.forRoot({
       isGlobal: true,
@@ -75,6 +82,13 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Aplica Rate Limiting a toda la API
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
