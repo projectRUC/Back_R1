@@ -1,12 +1,22 @@
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
+import { NestFactory, Reflector } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Helmet: Protección de cabeceras HTTP contra XSS, Clickjacking, etc.
+  app.use(helmet());
+
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
 
   app.enableCors({
     origin: true, // en pruebas acepta cualquier origen; en producción restringe a tu dominio del front
@@ -27,6 +37,9 @@ async function bootstrap() {
       transform: true, // convierte tipos automáticamente (ej: string → number en rolId)
     }),
   );
+
+  // Interceptor para ocultar datos sensibles con @Exclude()
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   // Aumenta el límite de payload JSON para soportar evidencias en Base64 (design-sprint)
   app.use(json({ limit: '25mb' }));
