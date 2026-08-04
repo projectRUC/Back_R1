@@ -44,4 +44,11 @@ export class RegisterDto {
   @IsInt({ message: 'El rolId debe ser un número entero.' })
   @IsNotEmpty({ message: 'El rolId es obligatorio.' })
   rolId: number;
+
+  /**
+   * ID del Grupo escolar (FK). Obligatorio al registrarse como Alumno.
+   */
+  @IsInt({ message: 'El grupoId debe ser un número entero.' })
+  @IsOptional()
+  grupoId?: number;
 }
