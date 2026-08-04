@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { join } from 'path';
 
 import { AppController } from './app.controller';
@@ -26,8 +26,9 @@ import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AlertasModule } from './alertas/alertas.module';
 import { AlumnosModule } from './alumnos/alumnos.module';
-
-// 1. IMPORTANTE: Importa el módulo de Pitch Coach
+import { PerfilModule } from './perfil/perfil.module';
+import { AuditLogModule } from './audit/audit-log.module';
+import { AuditLoggerInterceptor } from './common/interceptors/audit-logger.interceptor';
 
 @Module({
   imports: [
@@ -62,8 +63,10 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     // PostgreSQL (Prisma)
     PrismaModule,
 
-    // Autenticación
+    // Autenticación y Auditoría
     AuthModule,
+    AuditLogModule,
+    PerfilModule,
 
     // Módulos del sistema
     EquiposModule,
@@ -88,6 +91,11 @@ import { AlumnosModule } from './alumnos/alumnos.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // Interceptor Global de Trazabilidad (Zero PII - LGPDPPSO)
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLoggerInterceptor,
     },
   ],
 })

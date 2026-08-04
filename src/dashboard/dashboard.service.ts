@@ -544,7 +544,11 @@ export class DashboardService {
         nombre: equipo.eqNom,
         grupo: equipo.grupo?.grupoNom || 'Sin grupo asignado',
         creador: equipo.scrumMaster
-          ? [equipo.scrumMaster.usuNom, equipo.scrumMaster.usuApp]
+          ? [
+              equipo.scrumMaster.usuNom,
+              equipo.scrumMaster.usuApp,
+              equipo.scrumMaster.usuApm,
+            ]
               .filter(Boolean)
               .join(' ')
           : 'Usuario',

@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -57,10 +58,20 @@ export class AuthService {
       );
     }
 
-    // 3. Hashear la contraseña con bcrypt (protección de datos)
+    // 3. Si se proporciona grupoId, verificar existencia del grupo
+    if (dto.grupoId) {
+      const grupo = await this.prisma.grupo.findUnique({
+        where: { grupoId: dto.grupoId },
+      });
+      if (!grupo) {
+        throw new ConflictException(`El grupoId ${dto.grupoId} no existe.`);
+      }
+    }
+
+    // 4. Hashear la contraseña con bcrypt (protección de datos)
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
 
-    // 4. Crear el usuario en la base de datos vía Prisma
+    // 5. Crear el usuario en la base de datos vía Prisma
     const newUser = await this.prisma.usuario.create({
       data: {
         usuNom: dto.nombre,
@@ -69,19 +80,30 @@ export class AuthService {
         usuEmail: correoNormalizado,
         usuPass: passwordHash, // Siempre se guarda el hash, nunca el texto plano
         rolId: dto.rolId,
+        grupoId: dto.grupoId ?? null,
+        estadoCuenta: 'ACTIVO',
+        oposicionTratamiento: false,
       },
-      // Incluir el rol para retornarlo en la respuesta
-      include: { rolUsuario: true },
+      // Incluir el rol y grupo para retornarlo en la respuesta
+      include: { rolUsuario: true, grupo: true },
     });
 
-    // 5. Retornar el usuario SIN el hash de contraseña
+    // 6. Retornar el usuario SIN el hash de contraseña
+    const nombreCompleto = [newUser.usuNom, newUser.usuApp, newUser.usuApm]
+      .filter(Boolean)
+      .join(' ');
+
     return {
       message: 'Usuario registrado exitosamente.',
       usuario: {
         id: newUser.usuId,
-        nombre: `${newUser.usuNom} ${newUser.usuApp}`,
+        nombre: nombreCompleto,
         correo: newUser.usuEmail,
         rol: newUser.rolUsuario.rolUsuNom,
+        grupo: newUser.grupo ? newUser.grupo.grupoNom : null,
+        grupoId: newUser.grupoId,
+        estadoCuenta: newUser.estadoCuenta,
+        oposicionTratamiento: newUser.oposicionTratamiento,
         createdAt: newUser.createdAt,
       },
     };
@@ -99,6 +121,7 @@ export class AuthService {
    *   sin exponer jamás la contraseña en texto plano.
    * - El mensaje de error es GENÉRICO ("Credenciales inválidas") para no revelar
    *   si el correo existe o no (prevención de enumeración de usuarios).
+   * - Verifica el estado de la cuenta (ACTIVO, INACTIVO, ANONIMIZADO).
    * - El payload del JWT incluye `sub` (ID) y `rol` para RBAC.
    */
   async login(dto: LoginDto): Promise<{ accessToken: string }> {
@@ -119,15 +142,66 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    // 3. Construir el payload del JWT con sub (ID) y rol obligatorios
+    // 3. Verificar estado de la cuenta (Cumplimiento LGPDPPSO)
+    if (usuario.estadoCuenta === 'INACTIVO') {
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'Tu cuenta se encuentra pausada/inactiva. Debes reactivarla para acceder.',
+        error: 'ACCOUNT_PAUSED',
+      });
+    }
+
+    if (usuario.estadoCuenta === 'ANONIMIZADO') {
+      throw new UnauthorizedException('Cuenta no disponible o anonimizada.');
+    }
+
+    // 4. Construir el payload del JWT con sub (ID) y rol obligatorios
     const payload = {
       sub: usuario.usuId, // subject estándar JWT = ID del usuario
       rol: usuario.rolUsuario.rolUsuNom, // Nombre del rol para RBAC
     };
 
-    // 4. Firmar y retornar el token JWT
+    // 5. Firmar y retornar el token JWT
     const accessToken = this.jwtService.sign(payload);
 
+    return { accessToken };
+  }
+
+  /**
+   * Reactiva una cuenta inactiva previa validación de credenciales
+   * y emite un nuevo token JWT.
+   */
+  async reactivar(dto: LoginDto): Promise<{ accessToken: string }> {
+    const correoNormalizado = dto.correo.trim().toLowerCase();
+
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { usuEmail: correoNormalizado },
+      include: { rolUsuario: true },
+    });
+
+    const isPasswordValid =
+      usuario && (await bcrypt.compare(dto.password, usuario.usuPass));
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Credenciales inválidas.');
+    }
+
+    if (usuario.estadoCuenta === 'ANONIMIZADO') {
+      throw new UnauthorizedException('Cuenta cancelada o no disponible.');
+    }
+
+    // Reactivar en base de datos
+    await this.prisma.usuario.update({
+      where: { usuId: usuario.usuId },
+      data: { estadoCuenta: 'ACTIVO' },
+    });
+
+    const payload = {
+      sub: usuario.usuId,
+      rol: usuario.rolUsuario.rolUsuNom,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
     return { accessToken };
   }
 
@@ -159,10 +233,31 @@ export class AuthService {
     return {
       id: usuario.usuId,
       nombre: nombreCompleto,
+      usuNom: usuario.usuNom,
+      usuApp: usuario.usuApp,
+      usuApm: usuario.usuApm,
       correo: usuario.usuEmail,
       rol: usuario.rolUsuario.rolUsuNom,
       grupo: usuario.grupo ? usuario.grupo.grupoNom : null,
+      grupoId: usuario.grupoId,
+      estadoCuenta: usuario.estadoCuenta,
+      oposicionTratamiento: usuario.oposicionTratamiento,
     };
+  }
+
+  /**
+   * Obtiene la lista pública de grupos escolares (id, nombre, descripción)
+   * para que los alumnos puedan seleccionarlos por su nombre en el registro.
+   */
+  async getGruposPublicos() {
+    return this.prisma.grupo.findMany({
+      select: {
+        grupoId: true,
+        grupoNom: true,
+        grupoDesc: true,
+      },
+      orderBy: { grupoNom: 'asc' },
+    });
   }
 }
 

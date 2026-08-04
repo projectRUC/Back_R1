@@ -29,9 +29,18 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /**
+   * GET /auth/grupos
+   * Obtiene la lista pública de grupos escolares (id y nombre) para el formulario de registro de alumnos.
+   */
+  @Get('grupos')
+  async getGrupos() {
+    return this.authService.getGruposPublicos();
+  }
+
+  /**
    * POST /auth/register
    * Registra un nuevo usuario. No inicia sesión automáticamente.
-   * - Body: { nombre, apellidoPaterno, apellidoMaterno?, correo, password, rolId }
+   * - Body: { nombre, apellidoPaterno, apellidoMaterno?, correo, password, rolId, grupoId }
    * - Respuesta 201: datos del usuario creado (sin passwordHash)
    */
   @Post('register')
@@ -66,6 +75,28 @@ export class AuthController {
     });
 
     return { message: 'Sesión iniciada correctamente.' };
+  }
+
+  /**
+   * POST /auth/reactivar
+   * Reactiva una cuenta inactiva y establece el JWT en una cookie HttpOnly.
+   */
+  @Post('reactivar')
+  @HttpCode(HttpStatus.OK)
+  async reactivar(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken } = await this.authService.reactivar(loginDto);
+
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60 * 1000,
+    });
+
+    return { message: 'Cuenta reactivada y sesión iniciada correctamente.' };
   }
 
   /**
