@@ -22,6 +22,10 @@ COPY package*.json ./
 RUN npm ci --omit=dev --legacy-peer-deps --no-audit
 COPY --from=builder /usr/src/app/dist ./dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /usr/src/app/prisma ./prisma
+
+# Crear directorio para subida de archivos si no existe
+RUN mkdir -p uploads
 
 # Exponer el puerto por defecto de NestJS
 EXPOSE 3000
