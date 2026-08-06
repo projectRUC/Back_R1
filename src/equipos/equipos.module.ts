@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../database/prisma.module';
 import { EquiposController } from './equipos.controller';
 import { EquiposService } from './equipos.service';
+import { EmailModule } from '../email/email.module';
 
 /**
  * EquiposModule — Módulo de gestión para Equipos, Proyectos PAEC e Integrantes.
@@ -10,7 +11,7 @@ import { EquiposService } from './equipos.service';
  * EquiposService a los controladores registrados.
  */
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, EmailModule],
   controllers: [EquiposController],
   providers: [EquiposService],
   exports: [EquiposService],

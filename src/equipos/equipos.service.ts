@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
+import { EmailService } from '../email/email.service';
 
 /**
  * EquiposService — Lógica de negocio para la gestión de Equipos y Proyectos PAEC.
@@ -16,7 +17,10 @@ import { UpdateEquipoDto } from './dto/update-equipo.dto';
  */
 @Injectable()
 export class EquiposService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   /**
    * Obtiene todos los equipos registrados (básico para filtros).
@@ -124,7 +128,7 @@ export class EquiposService {
       });
 
       // 8. Retornar el detalle completo del equipo recién creado
-      return await tx.equipo.findUnique({
+      const equipoCreado = await tx.equipo.findUnique({
         where: { eqId: equipo.eqId },
         include: {
           proyecto: true,
@@ -154,6 +158,31 @@ export class EquiposService {
           },
         },
       });
+
+      // Enviar correos
+      if (equipoCreado) {
+        for (const ea of equipoCreado.equiposAlumno) {
+          const usuario = ea.usuario;
+          if (usuario && usuario.usuEmail) {
+            await this.emailService.enviarNotificacionEquipo(
+              usuario.usuEmail,
+              usuario.usuNom,
+              equipoCreado.eqNom,
+              ea.rolEquipo.rolEqNom,
+            );
+            if (equipoCreado.proyecto) {
+              await this.emailService.enviarNotificacionProyecto(
+                usuario.usuEmail,
+                usuario.usuNom,
+                equipoCreado.eqNom,
+                equipoCreado.proyecto.proyectoNom,
+              );
+            }
+          }
+        }
+      }
+
+      return equipoCreado;
     });
   }
 
@@ -322,7 +351,7 @@ export class EquiposService {
       }
 
       // 5. Retornar el equipo actualizado completo
-      return await tx.equipo.findUnique({
+      const equipoActualizado = await tx.equipo.findUnique({
         where: { eqId: id },
         include: {
           proyecto: true,
@@ -353,6 +382,35 @@ export class EquiposService {
           },
         },
       });
+
+      // Enviar correos si se modificaron integrantes
+      if (integrantes !== undefined && equipoActualizado) {
+        const viejosIds = equipoExistente.equiposAlumno.map(ea => ea.usuario.usuId);
+        
+        for (const ea of equipoActualizado.equiposAlumno) {
+          if (!viejosIds.includes(ea.usuario.usuId)) {
+            const usuario = ea.usuario;
+            if (usuario && usuario.usuEmail) {
+              await this.emailService.enviarNotificacionEquipo(
+                usuario.usuEmail,
+                usuario.usuNom,
+                equipoActualizado.eqNom,
+                ea.rolEquipo.rolEqNom,
+              );
+              if (equipoActualizado.proyecto) {
+                await this.emailService.enviarNotificacionProyecto(
+                  usuario.usuEmail,
+                  usuario.usuNom,
+                  equipoActualizado.eqNom,
+                  equipoActualizado.proyecto.proyectoNom,
+                );
+              }
+            }
+          }
+        }
+      }
+
+      return equipoActualizado;
     });
   }
 

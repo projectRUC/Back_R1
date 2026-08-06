@@ -6,6 +6,7 @@ import { Proyecto, ProyectoSchema } from '../database/schemas/proyecto.schema';
 import { Actividad, ActividadSchema } from '../database/schemas/actividad.schema';
 import { PrismaModule } from '../database/prisma.module';
 import { AlertasModule } from '../alertas/alertas.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AlertasModule } from '../alertas/alertas.module';
     ]),
     PrismaModule,
     AlertasModule,
+    EmailModule,
   ],
   controllers: [ActividadesController],
   providers: [ActividadesService],

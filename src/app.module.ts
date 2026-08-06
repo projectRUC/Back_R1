@@ -27,16 +27,25 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AlertasModule } from './alertas/alertas.module';
 import { AlumnosModule } from './alumnos/alumnos.module';
 import { PerfilModule } from './perfil/perfil.module';
+import { EmailModule } from './email/email.module';
 import { AuditLogModule } from './audit/audit-log.module';
 import { AuditLoggerInterceptor } from './common/interceptors/audit-logger.interceptor';
 
 @Module({
   imports: [
-    // Rate Limiting OWASP (10 peticiones por minuto por IP)
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 10,
-    }]),
+    // Rate Limiting OWASP (Protección contra DDoS y Fuerza Bruta)
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000, // 1 minuto
+        limit: 100, // Límite global estándar
+      },
+      {
+        name: 'auth',
+        ttl: 60000,
+        limit: 5, // Límite estricto de 5 intentos por minuto para autenticación
+      }
+    ]),
     // Variables de entorno
     ConfigModule.forRoot({
       isGlobal: true,
@@ -82,6 +91,8 @@ import { AuditLoggerInterceptor } from './common/interceptors/audit-logger.inter
     NotificacionesModule,
     AlertasModule,
     AlumnosModule,
+    PerfilModule,
+    EmailModule,
     
   ],
   controllers: [AppController],

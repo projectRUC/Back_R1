@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -43,6 +44,7 @@ export class AuthController {
    * - Body: { nombre, apellidoPaterno, apellidoMaterno?, correo, password, rolId, grupoId }
    * - Respuesta 201: datos del usuario creado (sin passwordHash)
    */
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
@@ -58,6 +60,7 @@ export class AuthController {
    * - sameSite: 'strict' previene que se envíe en requests de otros dominios (anti-CSRF)
    * - maxAge: duración de la cookie en milisegundos (8 horas)
    */
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
