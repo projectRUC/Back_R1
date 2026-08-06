@@ -9,6 +9,7 @@ import { AddComentarioDto, UpdateComentarioDto } from '../proyectos/dto/proyecto
 import { AlertasService } from '../alertas/alertas.service';
 import { PrismaService } from '../database/prisma.service';
 import { TipoAlerta } from '../database/schemas/alerta.schema';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class ActividadesService {
@@ -17,6 +18,7 @@ export class ActividadesService {
     @InjectModel(Proyecto.name) private proyectoModel: Model<Proyecto>,
     private readonly alertasService: AlertasService,
     private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
   ) {}
 
   async createActividad(dto: CreateActividadDto): Promise<Actividad> {
@@ -47,7 +49,26 @@ export class ActividadesService {
       evidencias: []
     });
 
-    return await nuevaActividad.save();
+    const act = await nuevaActividad.save();
+
+    // Enviar correos a los asignados
+    if (dto.asignados && dto.asignados.length > 0) {
+      for (const asignado of dto.asignados) {
+        const usuario = await this.prisma.usuario.findUnique({
+          where: { usuId: asignado.usu_id },
+        });
+        if (usuario && usuario.usuEmail) {
+          await this.emailService.enviarNotificacionActividad(
+            usuario.usuEmail,
+            usuario.usuNom,
+            act.nom_actividad,
+            proyecto.nombre,
+          );
+        }
+      }
+    }
+
+    return act;
   }
 
   async getActividadesByProyecto(proyecto_id: string): Promise<Actividad[]> {
@@ -106,8 +127,35 @@ export class ActividadesService {
       }
     }
 
+    // Identificar nuevos asignados para enviarles correo
+    let nuevosAsignados: any[] = [];
+    if (dto.asignados && dto.asignados.length > 0) {
+      const idsActuales = actividad.asignados.map(a => a.usu_id);
+      nuevosAsignados = dto.asignados.filter(a => !idsActuales.includes(a.usu_id));
+    }
+
     Object.assign(actividad, dto);
-    return await actividad.save();
+    const actGuardada = await actividad.save();
+
+    // Enviar correos a los nuevos asignados
+    if (nuevosAsignados.length > 0) {
+      const proyecto = await this.proyectoModel.findById(actividad.proyecto_id);
+      for (const asignado of nuevosAsignados) {
+        const usuario = await this.prisma.usuario.findUnique({
+          where: { usuId: asignado.usu_id },
+        });
+        if (usuario && usuario.usuEmail && proyecto) {
+          await this.emailService.enviarNotificacionActividad(
+            usuario.usuEmail,
+            usuario.usuNom,
+            actGuardada.nom_actividad,
+            proyecto.nombre, // nombre del proyecto
+          );
+        }
+      }
+    }
+
+    return actGuardada;
   }
 
   async deleteActividad(id: string): Promise<Actividad> {
