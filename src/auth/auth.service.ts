@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { EmailService } from 'src/email/email.service';
 
 /** Número de rondas de sal para bcrypt. Mayor valor = más seguro pero más lento.
  *  OWASP recomienda mínimo 10 rondas. */
@@ -22,6 +23,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
+
   ) { }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -259,5 +262,100 @@ export class AuthService {
       orderBy: { grupoNom: 'asc' },
     });
   }
+
+  //Solicitud de Recuperacion de Password 
+
+  async solicitarRecuperacion(email: string): Promise<void> {
+  const usuario = await this.prisma.usuario.findUnique({
+    where: { usuEmail: email },
+  });
+
+  // No revelamos si el correo existe o no (evita enumeración de usuarios)
+  if (!usuario) {
+    return;
+  }
+
+  const codigo = this.generarCodigoRecuperacion();
+
+  await this.prisma.usuario.update({
+    where: { usuId: usuario.usuId },
+    data: {
+      codigoRecuperacion: codigo,
+      fechaCodigoRecuperacion: new Date(),
+      enRecuperacion: true,
+    },
+  });
+
+  await this.emailService.enviarCodigoRecuperacion(usuario.usuEmail, usuario.usuNom, codigo);
+
+}
+
+private generarCodigoRecuperacion(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Verificacion del codigo de recuperacion 
+
+//Verificación del Código de Recuperación
+
+private readonly CODIGO_RECUPERACION_VIGENCIA_MS = 5 * 60 * 1000; // 5 minutos
+
+async verificarCodigoRecuperacion(email: string, codigo: string): Promise<void> {
+  const usuario = await this.prisma.usuario.findUnique({
+    where: { usuEmail: email },
+  });
+
+  // Mensaje genérico en todos los casos (correo no existe, sin código activo,
+  // código incorrecto o expirado) para no dar pistas a un atacante.
+  if (!usuario || !usuario.codigoRecuperacion || !usuario.fechaCodigoRecuperacion) {
+    throw new UnauthorizedException('Código inválido o expirado.');
+  }
+
+  if (usuario.codigoRecuperacion !== codigo) {
+    throw new UnauthorizedException('Código inválido o expirado.');
+  }
+
+  const tiempoTranscurrido = Date.now() - usuario.fechaCodigoRecuperacion.getTime();
+  if (tiempoTranscurrido > this.CODIGO_RECUPERACION_VIGENCIA_MS) {
+    throw new UnauthorizedException('Código inválido o expirado.');
+  }
+
+  // Código válido: se consume para que no pueda reutilizarse.
+  // enRecuperacion NO se toca aquí; se apaga al completar el cambio de contraseña.
+  await this.prisma.usuario.update({
+    where: { usuId: usuario.usuId },
+    data: {
+      codigoRecuperacion: null,
+      fechaCodigoRecuperacion: null,
+    },
+  });
+}
+
+// Cambio de password
+
+//Cambio de Contraseña (paso final de recuperación)
+
+async cambiarContrasenaRecuperacion(email: string, nuevaPassword: string): Promise<void> {
+  const usuario = await this.prisma.usuario.findUnique({
+    where: { usuEmail: email },
+  });
+
+  // Solo se permite si hay un proceso de recuperación activo (enRecuperacion === true).
+  // Esto evita que se cambie la contraseña sin haber pasado por solicitarRecuperacion
+  // y verificarCodigoRecuperacion primero.
+  if (!usuario || !usuario.enRecuperacion) {
+    throw new UnauthorizedException('No hay un proceso de recuperación activo para este correo.');
+  }
+
+  const passwordHash = await bcrypt.hash(nuevaPassword, BCRYPT_SALT_ROUNDS);
+
+  await this.prisma.usuario.update({
+    where: { usuId: usuario.usuId },
+    data: {
+      usuPass: passwordHash,
+      enRecuperacion: false,
+    },
+  });
+}
 }
 
