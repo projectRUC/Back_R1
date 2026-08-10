@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -19,19 +20,19 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       useFactory: (configService: ConfigService) => ({
         secret: configService.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
-          // Cast necesario: ConfigService retorna string genérico pero JwtModuleOptions
-          // espera el tipo StringValue de la librería `ms`.
           expiresIn: configService.get<string>('JWT_EXPIRES_IN', '8h') as any,
         },
       }),
     }),
+
+    // EmailModule expone EmailService para enviar el código de recuperación
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
-    JwtStrategy, // Registrar la estrategia para que Passport la use
+    JwtStrategy,
   ],
-  // Exportar para que otros módulos puedan usar JwtModule si lo necesitan
   exports: [JwtModule, PassportModule],
 })
 export class AuthModule {}

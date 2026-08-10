@@ -16,6 +16,9 @@ import { JwtPayload } from './strategies/jwt.strategy';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SolicitarRecuperacionDto } from './dto/solicitar-recuperacion.dto';
+import { VerificarCodigoDto } from './dto/verificar-codigo.dto';
+import { CambiarContrasenaDto } from './dto/cambiar-contrasena.dto';
 
 /**
  * AuthController expone los endpoints de autenticación.
@@ -69,12 +72,11 @@ export class AuthController {
   ) {
     const { accessToken } = await this.authService.login(loginDto);
 
-    // Establece el JWT en una cookie HttpOnly segura
     res.cookie('access_token', accessToken, {
-      httpOnly: true, // JS del cliente no puede acceder
-      secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
-      sameSite: 'lax', // Permite envío entre puertos locales y navegación segura
-      maxAge: 8 * 60 * 60 * 1000, // 8 horas en milisegundos
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60 * 1000,
     });
 
     return { message: 'Sesión iniciada correctamente.' };
@@ -103,6 +105,26 @@ export class AuthController {
   }
 
   /**
+   * POST /auth/recuperacion
+   * Inicia la recuperación de contraseña: genera un código de 6 dígitos,
+   * lo guarda junto con su fecha de creación y lo envía por correo.
+   *
+   * Seguridad:
+   * - Throttle más estricto que login/register para evitar spam de correos.
+   * - Respuesta genérica: no revela si el correo está registrado o no
+   *   (anti-enumeración de usuarios).
+   */
+  @Throttle({ auth: { limit: 3, ttl: 60000 } })
+  @Post('recuperacion')
+  @HttpCode(HttpStatus.OK)
+  async solicitarRecuperacion(@Body() dto: SolicitarRecuperacionDto) {
+    await this.authService.solicitarRecuperacion(dto.correo);
+    return {
+      message: 'Si el correo está registrado, recibirás un código de recuperación.',
+    };
+  }
+
+  /**
    * POST /auth/logout
    * Cierra la sesión limpiando la cookie del cliente.
    * No requiere body — solo necesita la cookie activa.
@@ -110,7 +132,6 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(@Res({ passthrough: true }) res: Response) {
-    // Sobrescribe la cookie con una vacía que expira inmediatamente
     res.clearCookie('access_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -136,4 +157,41 @@ export class AuthController {
   async getMe(@Req() req: Request & { user: JwtPayload }) {
     return this.authService.getProfile(req.user.sub);
   }
+
+
+  /**
+   * POST /auth/verificar-codigo
+   * Valida el código de 6 dígitos enviado al correo del usuario y su vigencia
+   * de 5 minutos. Si es correcto, lo consume (lo deja en null junto con su
+   * fecha) para que no pueda reutilizarse.
+   *
+   * Seguridad:
+   * - Throttle estricto: un código de 6 dígitos es fuerza-bruteable si no se
+   *   limitan los intentos.
+   * - Mensaje genérico de error (ver AuthService) para no revelar la causa
+   *   exacta del fallo.
+   */
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
+  @Post('verificar-codigo')
+  @HttpCode(HttpStatus.OK)
+  async verificarCodigo(@Body() dto: VerificarCodigoDto) {
+    await this.authService.verificarCodigoRecuperacion(dto.correo, dto.codigo);
+    return { message: 'Código verificado correctamente.' };
+  }
+
+  /**
+   * POST /auth/cambiar-contrasena
+   * Último paso de la recuperación: define la nueva contraseña.
+   * Solo funciona si el usuario tiene un proceso de recuperación activo
+   * (enRecuperacion === true), validado previamente por verificar-codigo.
+   */
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
+  @Post('cambiar-contrasena')
+  @HttpCode(HttpStatus.OK)
+  async cambiarContrasena(@Body() dto: CambiarContrasenaDto) {
+    await this.authService.cambiarContrasenaRecuperacion(dto.correo, dto.nuevaPassword);
+    return { message: 'Contraseña actualizada correctamente.' };
+  }
+
+
 }

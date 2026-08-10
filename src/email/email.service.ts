@@ -48,4 +48,19 @@ export class EmailService {
       this.logger.error(`Error al enviar correo a ${email}:`, error);
     }
   }
+
+  async enviarCodigoRecuperacion(email: string, nombreUsuario: string, codigo: string) {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: 'Código de recuperación de contraseña',
+        text: `Hola ${nombreUsuario},\n\nTu código de recuperación es: ${codigo}\n\nEste código es válido por 5 minutos. Si tú no solicitaste este cambio, ignora este correo.\n\nSaludos,\nEl equipo PAEC.`,
+        html: `<p>Hola <strong>${nombreUsuario}</strong>,</p><p>Tu código de recuperación es:</p><p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; margin: 16px 0;">${codigo}</p><p>Este código es válido por <strong>5 minutos</strong>. Si tú no solicitaste este cambio, ignora este correo.</p><p>Saludos,<br>El equipo PAEC.</p>`,
+      });
+      this.logger.log(`Código de recuperación enviado a ${email}`);
+    } catch (error) {
+      this.logger.error(`Error al enviar código de recuperación a ${email}:`, error);
+      throw error;
+    }
+  }
 }

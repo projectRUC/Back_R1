@@ -53,6 +53,9 @@ model Usuario {
   grupoId               Int?         @map("grupo_id")
   estadoCuenta          EstadoCuenta @default(ACTIVO) @map("estado_cuenta")
   oposicionTratamiento  Boolean      @default(false) @map("oposicion_tratamiento")
+  enRecuperacion        Boolean      @default(false) @map("en_recuperacion")
+  codigoRecuperacion    String?      @map("codigo_recuperacion") @db.VarChar(6)
+  fechaCodigoRecuperacion DateTime?  @map("fecha_codigo_recuperacion") @db.Timestamp(6)
   createdAt             DateTime?    @default(now()) @map("created_at") @db.Timestamptz(6)
   crea                  DateTime?    @default(now()) @map("crea") @db.Timestamp(6)
 
