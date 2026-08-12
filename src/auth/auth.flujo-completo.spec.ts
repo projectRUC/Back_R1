@@ -160,7 +160,7 @@ describe('AuthService — CP-R-03: flujo completo de recuperación', () => {
     expect(loginNueva).toEqual({ accessToken: 'fake.jwt.token' });
 
     // ══════════════════════════════════════════════════════════════════════
-    // PASO 4b — login con "Password123!" → debe fallar ✗
+    // PASO 4b — login cn "Password123!" → debe fallar ✗
     // ══════════════════════════════════════════════════════════════════════
     prismaMock.usuario.findUnique.mockResolvedValueOnce({
       usuId:        1,
