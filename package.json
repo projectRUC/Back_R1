@@ -18,7 +18,11 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "npx ts-node -r tsconfig-paths/register prisma/seed.ts"
+    "seed": "npx ts-node -r tsconfig-paths/register prisma/seed.ts",
+    "test:unit": "jest --config ./jest.unit.config.js",
+    "test:watch": "jest --config ./jest.unit.config.js --watch",
+    "test:cov": "jest --config ./jest.unit.config.js --coverage",
+    "test:ci": "jest --config ./jest.unit.config.js --ci --runInBand --coverage"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
