@@ -37,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           // Lee la cookie HttpOnly enviada automáticamente por el navegador
           return request?.cookies?.access_token ?? null;
         },
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       // Rechaza tokens expirados automáticamente
       ignoreExpiration: false,

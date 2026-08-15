@@ -79,7 +79,7 @@ export class AuthController {
       maxAge: 8 * 60 * 60 * 1000,
     });
 
-    return { message: 'Sesión iniciada correctamente.' };
+    return { message: 'Sesión iniciada correctamente.', accessToken };
   }
 
   /**
@@ -101,7 +101,7 @@ export class AuthController {
       maxAge: 8 * 60 * 60 * 1000,
     });
 
-    return { message: 'Cuenta reactivada y sesión iniciada correctamente.' };
+    return { message: 'Cuenta reactivada y sesión iniciada correctamente.', accessToken };
   }
 
   /**
