@@ -1,9 +1,14 @@
-import { Controller, Post, Body, Get, Param, ParseIntPipe, Put, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, ParseIntPipe, Put, Delete, UseGuards } from '@nestjs/common';
 import { ScrumService } from './scrum.service';
 import { CreateDailyDto } from './dto/create-daily.dto';
 import { UpdateRespuestaDto } from './dto/update-respuesta.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('scrum')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Alumno', 'Docente', 'Scrum Master')
 export class ScrumController {
   constructor(private readonly scrumService: ScrumService) {}
 

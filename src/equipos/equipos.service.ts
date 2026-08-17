@@ -192,7 +192,7 @@ export class EquiposService {
    * @param id ID numérico entero del equipo.
    * @returns Información del proyecto, grupo escolar e integrantes (con Scrum Master identificado).
    */
-  async findOne(id: number) {
+  async findOne(id: number, userId?: number, userRol?: string) {
     const equipo = await this.prisma.equipo.findUnique({
       where: { eqId: id },
       include: {

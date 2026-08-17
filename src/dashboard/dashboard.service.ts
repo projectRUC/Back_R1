@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { PrismaService } from '../database/prisma.service';
@@ -8,6 +8,35 @@ import { EstatusActividad } from '../common/providers/enums/estatus-actividad.en
 
 @Injectable()
 export class DashboardService {
+  /**
+   * SEGURIDAD BOLA / IDOR:
+   * Valida que el usuario autenticado pertenezca efectivamente al equipo solicitado,
+   * permitiendo acceso irrestricto únicamente a Docentes.
+   */
+  async validarAccesoEquipo(equipoId: number, userId?: number, userRol?: string) {
+    if (!userId || userRol === 'Docente') return;
+
+    const esMiembro = await this.prisma.equipoAlumno.findFirst({
+      where: {
+        eqId: Number(equipoId),
+        usuId: Number(userId),
+      },
+    });
+
+    const esScrumMaster = await this.prisma.equipo.findFirst({
+      where: {
+        eqId: Number(equipoId),
+        scrumMasterId: Number(userId),
+      },
+    });
+
+    if (!esMiembro && !esScrumMaster) {
+      throw new ForbiddenException(
+        'Acceso Denegado (BOLA): No perteneces a este equipo ni tienes autorización para acceder a sus datos.',
+      );
+    }
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectModel(Proyecto.name) private readonly proyectoModel: Model<Proyecto>,
@@ -407,7 +436,8 @@ export class DashboardService {
    * GET /dashboard/detalle-proyecto-equipo/:equipoId
    * Consume datos relacionales del Equipo (miembros) y datos documentales de su Proyecto.
    */
-  async getDetalleProyectoEquipo(equipoId: number) {
+  async getDetalleProyectoEquipo(equipoId: number, userId?: number, userRol?: string) {
+    await this.validarAccesoEquipo(equipoId, userId, userRol);
     const equipo = await this.prisma.equipo.findUnique({
       where: { eqId: equipoId },
       include: {
@@ -596,7 +626,8 @@ export class DashboardService {
     return periods;
   }
 
-  private async resolveMongoProyectoByEquipo(equipoId: number) {
+  private async resolveMongoProyectoByEquipo(equipoId: number, userId?: number, userRol?: string) {
+    await this.validarAccesoEquipo(equipoId, userId, userRol);
     const equipo = await this.prisma.equipo.findUnique({
       where: { eqId: equipoId },
       include: { proyecto: true },
@@ -616,8 +647,10 @@ export class DashboardService {
   async updateProyectoInfo(
     equipoId: number,
     dto: { nombre?: string; descripcion?: string; fechaInicio?: string; fechaFin?: string },
+    userId?: number,
+    userRol?: string,
   ) {
-    const { equipo, mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+    const { equipo, mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId, userId, userRol);
 
     // Actualizar Prisma
     if (dto.nombre !== undefined || dto.descripcion !== undefined) {
@@ -640,8 +673,8 @@ export class DashboardService {
     return { message: 'Proyecto actualizado con éxito.' };
   }
 
-  async createSprintsBFF(equipoId: number, cantidad: number) {
-    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+  async createSprintsBFF(equipoId: number, cantidad: number, userId?: number, userRol?: string) {
+    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId, userId, userRol);
     if (mongoDoc.sprints && mongoDoc.sprints.length > 0) {
       throw new BadRequestException('El proyecto ya cuenta con Sprints generados.');
     }
@@ -668,8 +701,10 @@ export class DashboardService {
     equipoId: number,
     numSprint: number,
     dto: { fechaInicio?: string; fechaFin?: string; objetivo?: string },
+    userId?: number,
+    userRol?: string,
   ) {
-    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId, userId, userRol);
     const sprint = mongoDoc.sprints?.find((s) => s.num_sprint === Number(numSprint));
     if (!sprint) {
       throw new NotFoundException('El Sprint especificado no existe.');
@@ -681,8 +716,8 @@ export class DashboardService {
     return { message: 'Sprint modificado con éxito.' };
   }
 
-  async createParcialesBFF(equipoId: number, cantidad: number) {
-    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+  async createParcialesBFF(equipoId: number, cantidad: number, userId?: number, userRol?: string) {
+    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId, userId, userRol);
     if (mongoDoc.parciales && mongoDoc.parciales.length > 0) {
       throw new BadRequestException('El proyecto ya cuenta con Parciales generados.');
     }
@@ -710,8 +745,10 @@ export class DashboardService {
     equipoId: number,
     numParcial: number,
     dto: { fechaInicio?: string; fechaFin?: string; objetivo?: string },
+    userId?: number,
+    userRol?: string,
   ) {
-    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+    const { mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId, userId, userRol);
     const parcial = mongoDoc.parciales?.find((p) => p.num_parcial === Number(numParcial));
     if (!parcial) {
       throw new NotFoundException('El Parcial especificado no existe.');
@@ -754,8 +791,10 @@ export class DashboardService {
       fechaFin: string;
       usuarioAsignadoId: number;
     },
+    userId?: number,
+    userRol?: string,
   ) {
-    const { equipo, mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId);
+    const { equipo, mongoDoc } = await this.resolveMongoProyectoByEquipo(equipoId, userId, userRol);
     let asignados: Array<{ usu_id: number; usu_nom: string }> = [];
 
     if (dto.usuarioAsignadoId) {
@@ -798,7 +837,8 @@ export class DashboardService {
     return rolDoc;
   }
 
-  async addMiembroEquipo(equipoId: number, dto: { usuId: number; rol: string }) {
+  async addMiembroEquipo(equipoId: number, dto: { usuId: number; rol: string }, userId?: number, userRol?: string) {
+    await this.validarAccesoEquipo(equipoId, userId, userRol);
     if (!dto.usuId) {
       throw new BadRequestException('Debe seleccionar un alumno candidato.');
     }
@@ -829,7 +869,8 @@ export class DashboardService {
     return { message: 'Miembro agregado exitosamente al equipo.' };
   }
 
-  async updateRolMiembro(equipoId: number, usuId: number, dto: { rol: string }) {
+  async updateRolMiembro(equipoId: number, usuId: number, dto: { rol: string }, userId?: number, userRol?: string) {
+    await this.validarAccesoEquipo(equipoId, userId, userRol);
     const registro = await this.prisma.equipoAlumno.findFirst({
       where: { eqId: Number(equipoId), usuId: Number(usuId) },
     });
@@ -847,7 +888,8 @@ export class DashboardService {
     return { message: 'Rol de integrante actualizado exitosamente.' };
   }
 
-  async removeMiembroEquipo(equipoId: number, usuId: number) {
+  async removeMiembroEquipo(equipoId: number, usuId: number, userId?: number, userRol?: string) {
+    await this.validarAccesoEquipo(equipoId, userId, userRol);
     const equipo = await this.prisma.equipo.findUnique({
       where: { eqId: Number(equipoId) },
     });
@@ -1087,7 +1129,8 @@ export class DashboardService {
   /**
    * CU-23: Gantt y Planeación
    */
-  async getProyectoGantt(equipoId: number) {
+  async getProyectoGantt(equipoId: number, userId?: number, userRol?: string) {
+    await this.validarAccesoEquipo(equipoId, userId, userRol);
     const actividades = await this.actividadModel.find({
       eq_id: Number(equipoId)
     }).lean().exec();
@@ -1107,7 +1150,8 @@ export class DashboardService {
   /**
    * CU-24: Kanban Board
    */
-  async getKanbanBoard(equipoId: number, sprint?: number) {
+  async getKanbanBoard(equipoId: number, sprint?: number, userId?: number, userRol?: string) {
+    await this.validarAccesoEquipo(equipoId, userId, userRol);
     const query: any = { eq_id: Number(equipoId) };
     if (sprint) query.sprint = Number(sprint);
 
