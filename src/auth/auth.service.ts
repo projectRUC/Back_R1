@@ -31,19 +31,9 @@ export class AuthService {
   // REGISTER
   // ─────────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Registra un nuevo usuario en el sistema.
-   *
-   * Seguridad:
-   * - Verificamos duplicado de correo ANTES de hashear para no desperdiciar CPU.
-   * - La contraseña se hashea con bcrypt (salt rounds=10) y NUNCA se persiste en
-   *   texto plano, cumpliendo con estándares de protección de datos (OWASP).
-   * - No retornamos el passwordHash en la respuesta.
-   */
   async register(dto: RegisterDto) {
     const correoNormalizado = dto.correo.trim().toLowerCase();
 
-    // 1. Verificar que el correo no esté registrado ya
     const existingUser = await this.prisma.usuario.findUnique({
       where: { usuEmail: correoNormalizado },
     });
@@ -51,7 +41,6 @@ export class AuthService {
       throw new ConflictException('Ya existe un usuario con ese correo.');
     }
 
-    // 2. Verificar que el rolId exista en la tabla rol_usuario
     const rol = await this.prisma.rolUsuario.findUnique({
       where: { rolUsuId: dto.rolId },
     });
@@ -61,7 +50,6 @@ export class AuthService {
       );
     }
 
-    // 3. Si se proporciona grupoId, verificar existencia del grupo
     if (dto.grupoId) {
       const grupo = await this.prisma.grupo.findUnique({
         where: { grupoId: dto.grupoId },
@@ -71,27 +59,23 @@ export class AuthService {
       }
     }
 
-    // 4. Hashear la contraseña con bcrypt (protección de datos)
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
 
-    // 5. Crear el usuario en la base de datos vía Prisma
     const newUser = await this.prisma.usuario.create({
       data: {
         usuNom: dto.nombre,
         usuApp: dto.apellidoPaterno,
         usuApm: dto.apellidoMaterno ?? null,
         usuEmail: correoNormalizado,
-        usuPass: passwordHash, // Siempre se guarda el hash, nunca el texto plano
+        usuPass: passwordHash,
         rolId: dto.rolId,
         grupoId: dto.grupoId ?? null,
         estadoCuenta: 'ACTIVO',
         oposicionTratamiento: false,
       },
-      // Incluir el rol y grupo para retornarlo en la respuesta
       include: { rolUsuario: true, grupo: true },
     });
 
-    // 6. Retornar el usuario SIN el hash de contraseña
     const nombreCompleto = [newUser.usuNom, newUser.usuApp, newUser.usuApm]
       .filter(Boolean)
       .join(' ');
@@ -116,36 +100,21 @@ export class AuthService {
   // LOGIN
   // ─────────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Autentica al usuario y emite un token JWT.
-   *
-   * Seguridad:
-   * - Usamos bcrypt.compare() para comparar contra el hash almacenado,
-   *   sin exponer jamás la contraseña en texto plano.
-   * - El mensaje de error es GENÉRICO ("Credenciales inválidas") para no revelar
-   *   si el correo existe o no (prevención de enumeración de usuarios).
-   * - Verifica el estado de la cuenta (ACTIVO, INACTIVO, ANONIMIZADO).
-   * - El payload del JWT incluye `sub` (ID) y `rol` para RBAC.
-   */
   async login(dto: LoginDto): Promise<{ accessToken: string }> {
     const correoNormalizado = dto.correo.trim().toLowerCase();
 
-    // 1. Buscar al usuario por correo, incluyendo su rol
     const usuario = await this.prisma.usuario.findUnique({
       where: { usuEmail: correoNormalizado },
       include: { rolUsuario: true },
     });
 
-    // 2. Verificar existencia y contraseña con mensaje genérico (anti-enumeración)
     const isPasswordValid =
       usuario && (await bcrypt.compare(dto.password, usuario.usuPass));
 
     if (!isPasswordValid) {
-      // Mensaje genérico: no revelar si el correo existe o no
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    // 3. Verificar estado de la cuenta (Cumplimiento LGPDPPSO)
     if (usuario.estadoCuenta === 'INACTIVO') {
       throw new ForbiddenException({
         statusCode: 403,
@@ -158,22 +127,16 @@ export class AuthService {
       throw new UnauthorizedException('Cuenta no disponible o anonimizada.');
     }
 
-    // 4. Construir el payload del JWT con sub (ID) y rol obligatorios
     const payload = {
-      sub: usuario.usuId, // subject estándar JWT = ID del usuario
-      rol: usuario.rolUsuario.rolUsuNom, // Nombre del rol para RBAC
+      sub: usuario.usuId,
+      rol: usuario.rolUsuario.rolUsuNom,
     };
 
-    // 5. Firmar y retornar el token JWT
     const accessToken = this.jwtService.sign(payload);
 
     return { accessToken };
   }
 
-  /**
-   * Reactiva una cuenta inactiva previa validación de credenciales
-   * y emite un nuevo token JWT.
-   */
   async reactivar(dto: LoginDto): Promise<{ accessToken: string }> {
     const correoNormalizado = dto.correo.trim().toLowerCase();
 
@@ -193,7 +156,6 @@ export class AuthService {
       throw new UnauthorizedException('Cuenta cancelada o no disponible.');
     }
 
-    // Reactivar en base de datos
     await this.prisma.usuario.update({
       where: { usuId: usuario.usuId },
       data: { estadoCuenta: 'ACTIVO' },
@@ -208,10 +170,6 @@ export class AuthService {
     return { accessToken };
   }
 
-  /**
-   * Obtiene el perfil del usuario autenticado incluyendo nombre, correo y rol.
-   * Optimiza el frontend eliminando la necesidad de consultas adicionales de usuario.
-   */
   async getProfile(userId: number) {
     const usuario = await this.prisma.usuario.findUnique({
       where: { usuId: userId },
@@ -248,10 +206,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Obtiene la lista pública de grupos escolares (id, nombre, descripción)
-   * para que los alumnos puedan seleccionarlos por su nombre en el registro.
-   */
   async getGruposPublicos() {
     return this.prisma.grupo.findMany({
       select: {
@@ -263,99 +217,101 @@ export class AuthService {
     });
   }
 
-  //Solicitud de Recuperacion de Password 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Solicitud de Recuperación de Password
+  // ─────────────────────────────────────────────────────────────────────────────
 
   async solicitarRecuperacion(email: string): Promise<void> {
-  const usuario = await this.prisma.usuario.findUnique({
-    where: { usuEmail: email },
-  });
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { usuEmail: email },
+    });
 
-  // No revelamos si el correo existe o no (evita enumeración de usuarios)
-  if (!usuario) {
-    return;
+    // No revelamos si el correo existe o no (evita enumeración de usuarios)
+    if (!usuario) {
+      return;
+    }
+
+    const codigo = this.generarCodigoRecuperacion();
+
+    // El código se guarda hasheado con bcrypt (mismo estándar que usuPass).
+    // El correo se envía en texto plano al usuario (es el único lugar donde debe verse claro),
+    // pero en la BD nunca queda almacenado en texto plano.
+    const codigoHash = await bcrypt.hash(codigo, BCRYPT_SALT_ROUNDS);
+
+    await this.prisma.usuario.update({
+      where: { usuId: usuario.usuId },
+      data: {
+        codigoRecuperacion: codigoHash,
+        fechaCodigoRecuperacion: new Date(),
+        enRecuperacion: true,
+      },
+    });
+
+    await this.emailService.enviarCodigoRecuperacion(usuario.usuEmail, usuario.usuNom, codigo);
   }
 
-  const codigo = this.generarCodigoRecuperacion();
-
-  await this.prisma.usuario.update({
-    where: { usuId: usuario.usuId },
-    data: {
-      codigoRecuperacion: codigo,
-      fechaCodigoRecuperacion: new Date(),
-      enRecuperacion: true,
-    },
-  });
-
-  await this.emailService.enviarCodigoRecuperacion(usuario.usuEmail, usuario.usuNom, codigo);
-
-}
-
-private generarCodigoRecuperacion(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Verificacion del codigo de recuperacion 
-
-//Verificación del Código de Recuperación
-
-private readonly CODIGO_RECUPERACION_VIGENCIA_MS = 5 * 60 * 1000; // 5 minutos
-
-async verificarCodigoRecuperacion(email: string, codigo: string): Promise<void> {
-  const usuario = await this.prisma.usuario.findUnique({
-    where: { usuEmail: email },
-  });
-
-  // Mensaje genérico en todos los casos (correo no existe, sin código activo,
-  // código incorrecto o expirado) para no dar pistas a un atacante.
-  if (!usuario || !usuario.codigoRecuperacion || !usuario.fechaCodigoRecuperacion) {
-    throw new UnauthorizedException('Código inválido o expirado.');
+  private generarCodigoRecuperacion(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  if (usuario.codigoRecuperacion !== codigo) {
-    throw new UnauthorizedException('Código inválido o expirado.');
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Verificación del Código de Recuperación
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private readonly CODIGO_RECUPERACION_VIGENCIA_MS = 5 * 60 * 1000; // 5 minutos
+
+  async verificarCodigoRecuperacion(email: string, codigo: string): Promise<void> {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { usuEmail: email },
+    });
+
+    // Mensaje genérico en todos los casos (correo no existe, sin código activo,
+    // código incorrecto o expirado) para no dar pistas a un atacante.
+    if (!usuario || !usuario.codigoRecuperacion || !usuario.fechaCodigoRecuperacion) {
+      throw new UnauthorizedException('Código inválido o expirado.');
+    }
+
+    const codigoValido = await bcrypt.compare(codigo, usuario.codigoRecuperacion);
+    if (!codigoValido) {
+      throw new UnauthorizedException('Código inválido o expirado.');
+    }
+
+    const tiempoTranscurrido = Date.now() - usuario.fechaCodigoRecuperacion.getTime();
+    if (tiempoTranscurrido > this.CODIGO_RECUPERACION_VIGENCIA_MS) {
+      throw new UnauthorizedException('Código inválido o expirado.');
+    }
+
+    // Código válido: se consume para que no pueda reutilizarse.
+    await this.prisma.usuario.update({
+      where: { usuId: usuario.usuId },
+      data: {
+        codigoRecuperacion: null,
+        fechaCodigoRecuperacion: null,
+      },
+    });
   }
 
-  const tiempoTranscurrido = Date.now() - usuario.fechaCodigoRecuperacion.getTime();
-  if (tiempoTranscurrido > this.CODIGO_RECUPERACION_VIGENCIA_MS) {
-    throw new UnauthorizedException('Código inválido o expirado.');
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Cambio de Contraseña (paso final de recuperación)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  async cambiarContrasenaRecuperacion(email: string, nuevaPassword: string): Promise<void> {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { usuEmail: email },
+    });
+
+    if (!usuario || !usuario.enRecuperacion) {
+      throw new UnauthorizedException('No hay un proceso de recuperación activo para este correo.');
+    }
+
+    const passwordHash = await bcrypt.hash(nuevaPassword, BCRYPT_SALT_ROUNDS);
+
+    await this.prisma.usuario.update({
+      where: { usuId: usuario.usuId },
+      data: {
+        usuPass: passwordHash,
+        enRecuperacion: false,
+      },
+    });
   }
-
-  // Código válido: se consume para que no pueda reutilizarse.
-  // enRecuperacion NO se toca aquí; se apaga al completar el cambio de contraseña.
-  await this.prisma.usuario.update({
-    where: { usuId: usuario.usuId },
-    data: {
-      codigoRecuperacion: null,
-      fechaCodigoRecuperacion: null,
-    },
-  });
 }
-
-// Cambio de password
-
-//Cambio de Contraseña (paso final de recuperación)
-
-async cambiarContrasenaRecuperacion(email: string, nuevaPassword: string): Promise<void> {
-  const usuario = await this.prisma.usuario.findUnique({
-    where: { usuEmail: email },
-  });
-
-  // Solo se permite si hay un proceso de recuperación activo (enRecuperacion === true).
-  // Esto evita que se cambie la contraseña sin haber pasado por solicitarRecuperacion
-  // y verificarCodigoRecuperacion primero.
-  if (!usuario || !usuario.enRecuperacion) {
-    throw new UnauthorizedException('No hay un proceso de recuperación activo para este correo.');
-  }
-
-  const passwordHash = await bcrypt.hash(nuevaPassword, BCRYPT_SALT_ROUNDS);
-
-  await this.prisma.usuario.update({
-    where: { usuId: usuario.usuId },
-    data: {
-      usuPass: passwordHash,
-      enRecuperacion: false,
-    },
-  });
-}
-}
-
