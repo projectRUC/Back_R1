@@ -7,6 +7,7 @@ import { UpdateRespuestaDto } from './dto/update-respuesta.dto';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../database/prisma.service';
 import { NotificacionesService } from '../notificaciones/notificaciones.service';
+import { CryptoService } from '../cryptoModule/CryptoService';
 
 @Injectable()
 export class ScrumService {
@@ -18,6 +19,48 @@ export class ScrumService {
     private readonly prisma: PrismaService,
     private readonly notificacionesService: NotificacionesService,
   ) {}
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Helpers de cifrado / descifrado
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private enc(text: string): string;
+  private enc(text: string | null | undefined): string | undefined;
+  private enc(text?: string | null): string | undefined {
+    if (!text) return undefined;
+    return CryptoService.encrypt(text);
+  }
+
+  /** Descifra sin lanzar excepción si el valor no está cifrado (datos legacy) o viene vacío */
+  private safeDec(value?: string | null): string | undefined | null {
+    if (!value) return value;
+    try {
+      return CryptoService.decrypt(value);
+    } catch {
+      return value;
+    }
+  }
+
+  /** Descifra en memoria las respuestas de un daily antes de devolverlo. No modifica el documento en BD. */
+  private decryptDaily(daily: any): Daily {
+    if (!daily) return daily;
+    const obj = daily.toObject ? daily.toObject() : daily;
+    if (obj.respuestas && obj.respuestas.length > 0) {
+      obj.respuestas = obj.respuestas.map((r: any) => ({
+        ...r,
+        hecho_ayer: this.safeDec(r.hecho_ayer),
+        por_hacer: this.safeDec(r.por_hacer),
+        inconvenientes: this.safeDec(r.inconvenientes),
+      }));
+    }
+    return obj;
+  }
+
+  private decryptDailies(dailies: any[]): Daily[] {
+    return dailies.map((d) => this.decryptDaily(d));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   async createDaily(dto: CreateDailyDto) {
     const hoy = new Date();
@@ -39,27 +82,39 @@ export class ScrumService {
       });
     }
 
-    const nuevaRespuesta: RespuestaDaily = {
+    // Copia en texto plano: se usa SOLO para el análisis de IA, nunca se persiste así
+    const nuevaRespuestaPlano: RespuestaDaily = {
       usu_id: dto.usu_id,
       hecho_ayer: dto.hecho_ayer,
       por_hacer: dto.por_hacer,
       inconvenientes: dto.inconvenientes,
     };
 
-    daily.respuestas.push(nuevaRespuesta);
+    // Copia cifrada: la que realmente se guarda en Mongo
+    const nuevaRespuestaCifrada: RespuestaDaily = {
+      usu_id: dto.usu_id,
+      hecho_ayer: this.enc(dto.hecho_ayer),
+      por_hacer: this.enc(dto.por_hacer),
+      inconvenientes: this.enc(dto.inconvenientes),
+    };
+
+    daily.respuestas.push(nuevaRespuestaCifrada);
     const dailyGuardado = await daily.save();
 
-    this.analyzeRespuestaAsync(nuevaRespuesta, dailyGuardado);
+    // Se manda la versión en texto plano al análisis, no la cifrada
+    this.analyzeRespuestaAsync(nuevaRespuestaPlano, dailyGuardado);
 
-    return dailyGuardado;
+    return this.decryptDaily(dailyGuardado);
   }
 
   async getDailiesByEquipo(eq_id: number) {
-    return this.dailyModel.find({ eq_id }).sort({ fecha_daily: -1 }).exec();
+    const dailies = await this.dailyModel.find({ eq_id }).sort({ fecha_daily: -1 }).exec();
+    return this.decryptDailies(dailies);
   }
 
   async getDailyById(dailyId: string) {
-    return this.dailyModel.findById(dailyId).exec();
+    const daily = await this.dailyModel.findById(dailyId).exec();
+    return this.decryptDaily(daily);
   }
 
   async updateRespuesta(dailyId: string, usuId: number, updateDto: UpdateRespuestaDto) {
@@ -73,11 +128,12 @@ export class ScrumService {
       throw new Error('Respuesta del usuario no encontrada en este Daily');
     }
 
-    if (updateDto.hecho_ayer !== undefined) daily.respuestas[respuestaIndex].hecho_ayer = updateDto.hecho_ayer;
-    if (updateDto.por_hacer !== undefined) daily.respuestas[respuestaIndex].por_hacer = updateDto.por_hacer;
-    if (updateDto.inconvenientes !== undefined) daily.respuestas[respuestaIndex].inconvenientes = updateDto.inconvenientes;
+    if (updateDto.hecho_ayer !== undefined) daily.respuestas[respuestaIndex].hecho_ayer = this.enc(updateDto.hecho_ayer);
+    if (updateDto.por_hacer !== undefined) daily.respuestas[respuestaIndex].por_hacer = this.enc(updateDto.por_hacer);
+    if (updateDto.inconvenientes !== undefined) daily.respuestas[respuestaIndex].inconvenientes = this.enc(updateDto.inconvenientes);
 
-    return daily.save();
+    const guardado = await daily.save();
+    return this.decryptDaily(guardado);
   }
 
   async deleteRespuesta(dailyId: string, usuId: number) {
@@ -93,7 +149,8 @@ export class ScrumService {
       return { deleted: true, message: 'Daily eliminado completamente por falta de respuestas' };
     }
 
-    return daily.save();
+    const guardado = await daily.save();
+    return this.decryptDaily(guardado);
   }
 
   async deleteDaily(dailyId: string) {

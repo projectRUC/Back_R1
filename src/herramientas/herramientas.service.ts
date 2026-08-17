@@ -5,6 +5,7 @@ import { Herramienta } from '../database/schemas/herramienta.schema';
 import { Proyecto } from '../database/schemas/proyecto.schema';
 import { EstatusHerramienta } from '../common/providers/enums/estatus-herramienta.enum';
 import { CreateHerramientaDto, UpdateHerramientaDto } from './dto/herramienta.dto';
+import { CryptoService } from '../cryptoModule/CryptoService';
 
 @Injectable()
 export class HerramientasService {
@@ -12,6 +13,44 @@ export class HerramientasService {
     @InjectModel(Herramienta.name) private herramientaModel: Model<Herramienta>,
     @InjectModel(Proyecto.name) private proyectoModel: Model<Proyecto>,
   ) {}
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Helpers de cifrado / descifrado
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private enc(text: string): string;
+  private enc(text: string | null | undefined): string | undefined;
+  private enc(text?: string | null): string | undefined {
+    if (!text) return undefined;
+    return CryptoService.encrypt(text);
+  }
+
+  /** Descifra sin lanzar excepción si el valor no está cifrado (datos legacy) o viene vacío */
+  private safeDec(value?: string | null): string | undefined | null {
+    if (!value) return value;
+    try {
+      return CryptoService.decrypt(value);
+    } catch {
+      return value;
+    }
+  }
+
+  /** Descifra en memoria los campos de texto libre de una herramienta antes de devolverla */
+  private decryptHerramienta(herramienta: any): Herramienta {
+    const obj = herramienta.toObject ? herramienta.toObject() : herramienta;
+    obj.nombre_herra = this.safeDec(obj.nombre_herra);
+    obj.descripcion = this.safeDec(obj.descripcion);
+    obj.uso = this.safeDec(obj.uso);
+    obj.url_herramienta = this.safeDec(obj.url_herramienta);
+    obj.evaluacion_o_motivo = this.safeDec(obj.evaluacion_o_motivo);
+    return obj;
+  }
+
+  private decryptHerramientas(herramientas: any[]): Herramienta[] {
+    return herramientas.map((h) => this.decryptHerramienta(h));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   /**
    * Valida que no excedan 5 herramientas activas (PENDIENTE o APROBADA) en un proyecto.
@@ -48,27 +87,35 @@ export class HerramientasService {
 
     const nuevaHerramienta = new this.herramientaModel({
       ...dto,
+      nombre_herra: this.enc(dto.nombre_herra),
+      descripcion: this.enc(dto.descripcion),
+      uso: this.enc(dto.uso),
+      url_herramienta: this.enc(dto.url_herramienta),
+      evaluacion_o_motivo: this.enc(dto.evaluacion_o_motivo),
       proyecto_id: new Types.ObjectId(dto.proyecto_id),
       estatus: estatusInicial,
     });
 
-    return await nuevaHerramienta.save();
+    const guardada = await nuevaHerramienta.save();
+    return this.decryptHerramienta(guardada);
   }
 
   async getHerramientasByProyecto(proyecto_id: string): Promise<Herramienta[]> {
-    return await this.herramientaModel
+    const herramientas = await this.herramientaModel
       .find({ proyecto_id: new Types.ObjectId(proyecto_id) })
       .exec();
+    return this.decryptHerramientas(herramientas);
   }
 
   async getHerramientas(): Promise<Herramienta[]> {
-    return await this.herramientaModel.find().exec();
+    const herramientas = await this.herramientaModel.find().exec();
+    return this.decryptHerramientas(herramientas);
   }
 
   async getHerramientaById(id: string): Promise<Herramienta> {
     const herramienta = await this.herramientaModel.findById(id).exec();
     if (!herramienta) throw new NotFoundException('Herramienta no encontrada');
-    return herramienta;
+    return this.decryptHerramienta(herramienta);
   }
 
   async updateHerramienta(id: string, dto: UpdateHerramientaDto): Promise<Herramienta> {
@@ -90,13 +137,22 @@ export class HerramientasService {
       }
     }
 
-    Object.assign(herramienta, dto);
-    return await herramienta.save();
+    // Cifrar únicamente los campos de texto libre que vengan en el dto de actualización
+    const dtoCifrado: UpdateHerramientaDto = { ...dto };
+    if (dto.nombre_herra !== undefined) dtoCifrado.nombre_herra = this.enc(dto.nombre_herra);
+    if (dto.descripcion !== undefined) dtoCifrado.descripcion = this.enc(dto.descripcion);
+    if (dto.uso !== undefined) dtoCifrado.uso = this.enc(dto.uso);
+    if (dto.url_herramienta !== undefined) dtoCifrado.url_herramienta = this.enc(dto.url_herramienta);
+    if (dto.evaluacion_o_motivo !== undefined) dtoCifrado.evaluacion_o_motivo = this.enc(dto.evaluacion_o_motivo);
+
+    Object.assign(herramienta, dtoCifrado);
+    const guardada = await herramienta.save();
+    return this.decryptHerramienta(guardada);
   }
 
   async deleteHerramienta(id: string): Promise<Herramienta> {
     const herramienta = await this.herramientaModel.findByIdAndDelete(id).exec();
     if (!herramienta) throw new NotFoundException('Herramienta no encontrada');
-    return herramienta;
+    return this.decryptHerramienta(herramienta);
   }
 }

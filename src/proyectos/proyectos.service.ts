@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Proyecto, Parcial, Sprint } from '../database/schemas/proyecto.schema';
 import { Actividad } from '../database/schemas/actividad.schema';
 import { CreateProyectoDto, UpdateProyectoDto, CreatePeriodoDto, UpdatePeriodoDto, AddComentarioDto, UpdateComentarioDto } from './dto/proyecto.dto';
+import { CryptoService } from '../cryptoModule/CryptoService';
 
 @Injectable()
 export class ProyectosService {
@@ -11,6 +12,69 @@ export class ProyectosService {
     @InjectModel(Proyecto.name) private proyectoModel: Model<Proyecto>,
     @InjectModel(Actividad.name) private actividadModel: Model<Actividad>,
   ) {}
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Helpers de cifrado / descifrado
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private enc(text: string): string;
+  private enc(text: string | null | undefined): string | undefined;
+  private enc(text?: string | null): string | undefined {
+    if (!text) return undefined;
+    return CryptoService.encrypt(text);
+  }
+
+  /** Descifra sin lanzar excepción si el valor no está cifrado (datos legacy) o viene vacío */
+  private safeDec(value?: string | null): string | undefined | null {
+    if (!value) return value;
+    try {
+      return CryptoService.decrypt(value);
+    } catch {
+      return value;
+    }
+  }
+
+  /** Descifra un array de comentarios (parciales/sprints) en memoria */
+  private decryptComentarios(comentarios: any[] | undefined) {
+    if (!comentarios || comentarios.length === 0) return comentarios;
+    return comentarios.map((c: any) => {
+      const obj = c.toObject ? c.toObject() : c;
+      return { ...obj, comentario: this.safeDec(obj.comentario) };
+    });
+  }
+
+  /** Descifra un array de periodos (parciales o sprints), incluyendo objetivo y comentarios */
+  private decryptPeriodos(periodos: any[] | undefined) {
+    if (!periodos || periodos.length === 0) return periodos;
+    return periodos.map((p: any) => {
+      const obj = p.toObject ? p.toObject() : p;
+      return {
+        ...obj,
+        objetivo: this.safeDec(obj.objetivo),
+        comentarios: this.decryptComentarios(obj.comentarios),
+      };
+    });
+  }
+
+  /**
+   * Descifra en memoria los campos de texto libre de un proyecto
+   * (descripción, objetivos y comentarios de parciales/sprints) antes de devolverlo.
+   * No modifica el documento en BD.
+   */
+  private decryptProyecto(proyecto: any): Proyecto {
+    if (!proyecto) return proyecto;
+    const obj = proyecto.toObject ? proyecto.toObject() : proyecto;
+    obj.descripcion = this.safeDec(obj.descripcion);
+    obj.parciales = this.decryptPeriodos(obj.parciales);
+    obj.sprints = this.decryptPeriodos(obj.sprints);
+    return obj;
+  }
+
+  private decryptProyectos(proyectos: any[]): Proyecto[] {
+    return proyectos.map((p) => this.decryptProyecto(p));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   async createProyecto(dto: CreateProyectoDto): Promise<Proyecto> {
     const start = new Date(dto.fecha_inicio);
@@ -28,27 +92,35 @@ export class ProyectosService {
       sprints: [],
     });
 
-    return await nuevoProyecto.save();
+    const guardado = await nuevoProyecto.save();
+    return this.decryptProyecto(guardado);
   }
 
   async getProyectos(): Promise<Proyecto[]> {
-    return await this.proyectoModel.find().exec();
+    const proyectos = await this.proyectoModel.find().exec();
+    return this.decryptProyectos(proyectos);
   }
 
   async getProyectoById(id: string): Promise<Proyecto> {
     const proyecto = await this.proyectoModel.findById(id).exec();
     if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
-    return proyecto;
+    return this.decryptProyecto(proyecto);
   }
 
   async updateProyecto(id: string, dto: UpdateProyectoDto): Promise<Proyecto> {
+    // Cifrar únicamente descripcion si viene en el dto; el resto pasa igual
+    const dtoCifrado: any = { ...dto };
+    if ((dto as any).descripcion !== undefined) {
+      dtoCifrado.descripcion = this.enc((dto as any).descripcion);
+    }
+
     const proyecto = await this.proyectoModel.findByIdAndUpdate(
       id,
-      { $set: dto },
+      { $set: dtoCifrado },
       { new: true }
     );
     if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
-    return proyecto;
+    return this.decryptProyecto(proyecto);
   }
 
   async deleteProyecto(id: string): Promise<Proyecto> {
@@ -58,7 +130,7 @@ export class ProyectosService {
     }
     const proyecto = await this.proyectoModel.findByIdAndDelete(id).exec();
     if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
-    return proyecto;
+    return this.decryptProyecto(proyecto);
   }
 
   private distributeDates(startDate: Date, endDate: Date, count: number) {
@@ -107,7 +179,8 @@ export class ProyectosService {
     }));
 
     proyecto.parciales = parciales as any;
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
 
   async createSprints(id: string, dto: CreatePeriodoDto): Promise<Proyecto> {
@@ -133,7 +206,8 @@ export class ProyectosService {
     }));
 
     proyecto.sprints = sprints as any;
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
 
   private validatePeriodoFechas(
@@ -179,11 +253,12 @@ export class ProyectosService {
 
     if (dto.fecha_inicio) proyecto.parciales[index].fecha_inicio = new Date(dto.fecha_inicio);
     if (dto.fecha_fin) proyecto.parciales[index].fecha_fin = new Date(dto.fecha_fin);
-    if (dto.objetivo !== undefined) proyecto.parciales[index].objetivo = dto.objetivo;
+    if (dto.objetivo !== undefined) proyecto.parciales[index].objetivo = this.enc(dto.objetivo);
 
     // We must tell mongoose that the array was modified
     proyecto.markModified('parciales');
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
 
   async updateSprint(id: string, num_sprint: number, dto: UpdatePeriodoDto): Promise<Proyecto> {
@@ -197,10 +272,11 @@ export class ProyectosService {
 
     if (dto.fecha_inicio) proyecto.sprints[index].fecha_inicio = new Date(dto.fecha_inicio);
     if (dto.fecha_fin) proyecto.sprints[index].fecha_fin = new Date(dto.fecha_fin);
-    if (dto.objetivo !== undefined) proyecto.sprints[index].objetivo = dto.objetivo;
+    if (dto.objetivo !== undefined) proyecto.sprints[index].objetivo = this.enc(dto.objetivo);
 
     proyecto.markModified('sprints');
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
 
   async deleteParcial(id: string, num_parcial: number): Promise<Proyecto> {
@@ -215,7 +291,7 @@ export class ProyectosService {
       { new: true }
     );
     if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
-    return proyecto;
+    return this.decryptProyecto(proyecto);
   }
 
   async deleteSprint(id: string, num_sprint: number): Promise<Proyecto> {
@@ -230,7 +306,7 @@ export class ProyectosService {
       { new: true }
     );
     if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
-    return proyecto;
+    return this.decryptProyecto(proyecto);
   }
 
   async addComentarioParcial(id: string, num_parcial: number, dto: AddComentarioDto): Promise<Proyecto> {
@@ -242,11 +318,12 @@ export class ProyectosService {
 
     proyecto.parciales[index].comentarios.push({
       usu_id: dto.usu_id,
-      comentario: dto.comentario
+      comentario: this.enc(dto.comentario)
     } as any);
 
     proyecto.markModified('parciales');
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
 
   async editComentarioParcial(id: string, num_parcial: number, comment_id: string, dto: UpdateComentarioDto): Promise<Proyecto> {
@@ -265,9 +342,10 @@ export class ProyectosService {
       throw new ConflictException('No tienes permisos para editar este comentario');
     }
 
-    proyecto.parciales[pIndex].comentarios[cIndex].comentario = dto.comentario;
+    proyecto.parciales[pIndex].comentarios[cIndex].comentario = this.enc(dto.comentario);
     proyecto.markModified('parciales');
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
   
   // Similar comments operations for Sprints can be implemented
@@ -280,11 +358,12 @@ export class ProyectosService {
 
     proyecto.sprints[index].comentarios.push({
       usu_id: dto.usu_id,
-      comentario: dto.comentario
+      comentario: this.enc(dto.comentario)
     } as any);
 
     proyecto.markModified('sprints');
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
 
   async editComentarioSprint(id: string, num_sprint: number, comment_id: string, dto: UpdateComentarioDto): Promise<Proyecto> {
@@ -301,8 +380,9 @@ export class ProyectosService {
       throw new ConflictException('No tienes permisos para editar este comentario');
     }
 
-    proyecto.sprints[sIndex].comentarios[cIndex].comentario = dto.comentario;
+    proyecto.sprints[sIndex].comentarios[cIndex].comentario = this.enc(dto.comentario);
     proyecto.markModified('sprints');
-    return await proyecto.save();
+    const guardado = await proyecto.save();
+    return this.decryptProyecto(guardado);
   }
 }

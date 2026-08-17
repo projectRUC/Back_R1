@@ -8,15 +8,21 @@ import {
   UploadedFile,
   UseInterceptors,
   Body,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import { FilesService } from './files.service';
 import { CreateFileDto } from './dto/create-file.dto';
-import { multerConfig } from 'src/config/multer.config';
+import { multerConfig } from '../config/multer.config';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('files')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Alumno', 'Docente', 'Scrum Master')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 

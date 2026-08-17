@@ -74,8 +74,9 @@ export class DashboardController {
   @Roles('Alumno', 'Scrum Master', 'Docente')
   async getDetalleProyectoEquipo(
     @Param('equipoId', ParseIntPipe) equipoId: number,
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.getDetalleProyectoEquipo(equipoId);
+    return this.dashboardService.getDetalleProyectoEquipo(equipoId, req.user.sub, req.user.rol);
   }
 
   /**
@@ -93,8 +94,9 @@ export class DashboardController {
       fechaInicio?: string;
       fechaFin?: string;
     },
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.updateProyectoInfo(equipoId, body);
+    return this.dashboardService.updateProyectoInfo(equipoId, body, req.user.sub, req.user.rol);
   }
 
   /**
@@ -106,8 +108,9 @@ export class DashboardController {
   async createSprints(
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Body('cantidad', ParseIntPipe) cantidad: number,
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.createSprintsBFF(equipoId, cantidad);
+    return this.dashboardService.createSprintsBFF(equipoId, cantidad, req.user.sub, req.user.rol);
   }
 
   /**
@@ -120,8 +123,9 @@ export class DashboardController {
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Param('numSprint', ParseIntPipe) numSprint: number,
     @Body() body: { fechaInicio?: string; fechaFin?: string; objetivo?: string },
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.updateSprintBFF(equipoId, numSprint, body);
+    return this.dashboardService.updateSprintBFF(equipoId, numSprint, body, req.user.sub, req.user.rol);
   }
 
   /**
@@ -133,8 +137,9 @@ export class DashboardController {
   async createParciales(
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Body('cantidad', ParseIntPipe) cantidad: number,
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.createParcialesBFF(equipoId, cantidad);
+    return this.dashboardService.createParcialesBFF(equipoId, cantidad, req.user.sub, req.user.rol);
   }
 
   /**
@@ -147,8 +152,9 @@ export class DashboardController {
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Param('numParcial', ParseIntPipe) numParcial: number,
     @Body() body: { fechaInicio?: string; fechaFin?: string; objetivo?: string },
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.updateParcialBFF(equipoId, numParcial, body);
+    return this.dashboardService.updateParcialBFF(equipoId, numParcial, body, req.user.sub, req.user.rol);
   }
 
   /**
@@ -181,8 +187,9 @@ export class DashboardController {
       fechaFin: string;
       usuarioAsignadoId: number;
     },
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.createActividadBFF(equipoId, body);
+    return this.dashboardService.createActividadBFF(equipoId, body, req.user.sub, req.user.rol);
   }
 
   /**
@@ -194,8 +201,9 @@ export class DashboardController {
   async addMiembroEquipo(
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Body() body: { usuId: number; rol: string },
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.addMiembroEquipo(equipoId, body);
+    return this.dashboardService.addMiembroEquipo(equipoId, body, req.user.sub, req.user.rol);
   }
 
   /**
@@ -208,8 +216,9 @@ export class DashboardController {
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Param('usuId', ParseIntPipe) usuId: number,
     @Body() body: { rol: string },
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.updateRolMiembro(equipoId, usuId, body);
+    return this.dashboardService.updateRolMiembro(equipoId, usuId, body, req.user.sub, req.user.rol);
   }
 
   /**
@@ -221,8 +230,9 @@ export class DashboardController {
   async removeMiembroEquipo(
     @Param('equipoId', ParseIntPipe) equipoId: number,
     @Param('usuId', ParseIntPipe) usuId: number,
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    return this.dashboardService.removeMiembroEquipo(equipoId, usuId);
+    return this.dashboardService.removeMiembroEquipo(equipoId, usuId, req.user.sub, req.user.rol);
   }
 
   /**
@@ -257,6 +267,7 @@ export class DashboardController {
   async getDocenteAlumnos() {
     return this.dashboardService.getDocenteAlumnos();
   }
+
   /**
    * GET /dashboard/metrics/docente
    * CU-20: Métricas generales del docente
@@ -297,8 +308,11 @@ export class DashboardController {
    */
   @Get('proyectos/:equipoId/gantt')
   @Roles('Docente', 'Scrum Master', 'Alumno')
-  async getProyectoGantt(@Param('equipoId', ParseIntPipe) equipoId: number) {
-    return this.dashboardService.getProyectoGantt(equipoId);
+  async getProyectoGantt(
+    @Param('equipoId', ParseIntPipe) equipoId: number,
+    @Req() req: Request & { user: JwtPayload },
+  ) {
+    return this.dashboardService.getProyectoGantt(equipoId, req.user.sub, req.user.rol);
   }
 
   /**
@@ -309,9 +323,9 @@ export class DashboardController {
   @Roles('Docente', 'Scrum Master', 'Alumno')
   async getKanbanBoard(
     @Param('equipoId', ParseIntPipe) equipoId: number,
-    @Req() req: any
+    @Req() req: Request & { user: JwtPayload },
   ) {
-    const { sprint } = req.query;
-    return this.dashboardService.getKanbanBoard(equipoId, sprint);
+    const { sprint } = (req as any).query;
+    return this.dashboardService.getKanbanBoard(equipoId, sprint, req.user.sub, req.user.rol);
   }
 }

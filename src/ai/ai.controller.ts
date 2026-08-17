@@ -1,8 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { GenerateAiDto } from './dto/generate-ai.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('ai')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Alumno', 'Docente', 'Scrum Master')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 

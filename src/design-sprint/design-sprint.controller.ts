@@ -9,7 +9,9 @@ import {
   Query,
   Req,
   NotFoundException,
+  BadRequestException,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -22,7 +24,10 @@ import { CreatePrototipoDto } from './dto/create-prototipo.dto';
 import { AddComentarioDto } from './dto/add-comentario.dto';
 import { PitchCoachResponseDto } from './dto/pitch-coach-response.dto';
 import { UpdateVoBoDto } from './dto/update-vobo.dto';
-import { AiService } from 'src/ai/ai.service';
+import { AiService } from '../ai/ai.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 const multerConfig = {
   storage: diskStorage({
@@ -36,14 +41,19 @@ const multerConfig = {
 };
 
 @Controller('design-sprint')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Alumno', 'Docente', 'Scrum Master')
 export class DesignSprintController {
   constructor(
     private readonly designSprintService: DesignSprintService,
-    private readonly aiService: AiService, // <-- CORREGIDO: Se agrega 'private readonly'
+    private readonly aiService: AiService,
   ) {}
 
   @Post()
   crear(@Body('eq_id') eq_id: number, @Body('proyecto_id') proyecto_id: string) {
+    if (!eq_id || !proyecto_id) {
+      throw new BadRequestException('Se requieren eq_id y proyecto_id para crear el ciclo de ideación.');
+    }
     return this.designSprintService.crear(Number(eq_id), proyecto_id);
   }
 
@@ -52,12 +62,16 @@ export class DesignSprintController {
     @Query('eq_id') eq_id: string,
     @Query('proyecto_id') proyecto_id: string,
   ) {
+    if (!eq_id || !proyecto_id) {
+      throw new BadRequestException('Se requieren los parámetros eq_id y proyecto_id.');
+    }
     return this.designSprintService.findByEquipoYProyecto(Number(eq_id), proyecto_id);
   }
 
+  // Devuelve el documento DESCIFRADO (findById devuelve el crudo, es solo para uso interno)
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.designSprintService.findById(id);
+    return this.designSprintService.findByIdDecrypted(id);
   }
 
   // Lunes — Mapear
@@ -112,16 +126,11 @@ export class DesignSprintController {
 
   // ---------- RETROALIMENTACIÓN DOCENTE ----------
 
-  // Soporta /mapeo/comentarios y /mapeo/comentario
   @Post([':id/mapeo/comentarios', ':id/mapeo/comentario'])
-  agregarComentarioMapeo(
-    @Param('id') id: string,
-    @Body() dto: AddComentarioDto,
-  ) {
+  agregarComentarioMapeo(@Param('id') id: string, @Body() dto: AddComentarioDto) {
     return this.designSprintService.agregarComentarioMapeo(id, dto);
   }
 
-  // Soporta /bocetos/:bocetoId/comentarios, /boceto/:bocetoId/comentarios y sus formas en singular
   @Post([
     ':id/bocetos/:bocetoId/comentarios',
     ':id/bocetos/:bocetoId/comentario',
@@ -136,30 +145,19 @@ export class DesignSprintController {
     return this.designSprintService.agregarComentarioBoceto(id, bocetoId, dto);
   }
 
-  // Soporta /prototipo/comentarios y /prototipo/comentario
   @Post([':id/prototipo/comentarios', ':id/prototipo/comentario'])
-  agregarComentarioPrototipo(
-    @Param('id') id: string,
-    @Body() dto: AddComentarioDto,
-  ) {
+  agregarComentarioPrototipo(@Param('id') id: string, @Body() dto: AddComentarioDto) {
     return this.designSprintService.agregarComentarioPrototipo(id, dto);
   }
 
-  // Soporta /comentarios-generales y /comentario-general
   @Post([':id/comentarios-generales', ':id/comentario-general'])
-  agregarComentarioGeneral(
-    @Param('id') id: string,
-    @Body() dto: AddComentarioDto,
-  ) {
+  agregarComentarioGeneral(@Param('id') id: string, @Body() dto: AddComentarioDto) {
     return this.designSprintService.agregarComentarioGeneral(id, dto);
   }
 
   // ---------- VALIDACIÓN Y VOBO (Viernes) ----------
   @Patch(':id/vobo')
-  actualizarVoBo(
-    @Param('id') id: string,
-    @Body() dto: UpdateVoBoDto,
-  ) {
+  actualizarVoBo(@Param('id') id: string, @Body() dto: UpdateVoBoDto) {
     return this.designSprintService.actualizarVoBo(id, dto);
   }
 
@@ -167,7 +165,8 @@ export class DesignSprintController {
 
   @Post(':id/ai-pitch-coach')
   async runPitchCoach(@Param('id') id: string): Promise<PitchCoachResponseDto> {
-    const project = await this.designSprintService.findById(id);
+    // IMPORTANTE: se usa la versión descifrada, si no la IA recibiría texto cifrado ilegible
+    const project = await this.designSprintService.findByIdDecrypted(id);
 
     if (!project) {
       throw new NotFoundException(`El Design Sprint con ID ${id} no existe.`);
@@ -175,43 +174,36 @@ export class DesignSprintController {
 
     const doc = project as any;
 
-    // 1. Extraemos el resumen (Buscamos en la fase de mapeo/prototipo o raíz)
     const resumen =
       doc.mapeo?.meta_a_largo_plazo ||
       doc.prototipo?.descripcion ||
+      doc.mapeo?.proyecto_problema ||
       doc.resumen ||
       doc.descripcion ||
       'Proyecto enfocado en la solución de problemas mediante un producto/servicio innovador.';
 
-    // 2. Extraemos las problemáticas (Buscamos preguntas Cmo Podramos / mapeo / retos)
     const rawProblematicas =
-      doc.mapeo?.preguntas_como_podriamos ||
-      doc.problematicas ||
-      doc.retos;
+      doc.mapeo?.preguntas_como_podriamos || doc.problematicas || doc.retos;
 
     const problematicas =
       Array.isArray(rawProblematicas) && rawProblematicas.length > 0
         ? rawProblematicas
         : ['Falta de validación clara de la propuesta de valor con clientes potenciales'];
 
-    // 3. Extraemos las evidencias (Buscamos enlaces de prototipo, bocetos o archivos adjuntos)
     const evidencias: string[] = [];
 
     if (doc.prototipo?.enlace) evidencias.push(`Enlace al prototipo: ${doc.prototipo.enlace}`);
-    if (doc.prototipo?.archivos?.length) evidencias.push(`Archivos de prototipo subidos: ${doc.prototipo.archivos.length}`);
-    if (doc.bocetos?.length) evidencias.push(`Cantidad de bocetos registrados: ${doc.bocetos.length}`);
-    if (doc.evidencias?.length) evidencias.push(...doc.evidencias);
+    if (doc.prototipo?.archivos?.length)
+      evidencias.push(`Archivos de prototipo subidos: ${doc.prototipo.archivos.length}`);
+    if (doc.bocetos?.length)
+      evidencias.push(`Cantidad de bocetos registrados: ${doc.bocetos.length}`);
+    if (Array.isArray(doc.evidencias) && doc.evidencias.length) evidencias.push(...doc.evidencias);
 
     if (evidencias.length === 0) {
       evidencias.push('Prototipo interactivo en proceso y mapa de experiencia cargado.');
     }
 
-    // 4. Formateamos el objeto para consumirlo en el servicio de Gemini
-    const projectData = {
-      resumen,
-      problematicas,
-      evidencias,
-    };
+    const projectData = { resumen, problematicas, evidencias };
 
     return await this.aiService.generatePitchCoachAnalysis(projectData);
   }

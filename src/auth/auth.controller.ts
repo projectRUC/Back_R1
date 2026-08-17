@@ -75,11 +75,11 @@ export class AuthController {
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 8 * 60 * 60 * 1000,
     });
 
-    return { message: 'Sesión iniciada correctamente.' };
+    return { message: 'Sesión iniciada correctamente.', accessToken };
   }
 
   /**
@@ -97,11 +97,11 @@ export class AuthController {
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 8 * 60 * 60 * 1000,
     });
 
-    return { message: 'Cuenta reactivada y sesión iniciada correctamente.' };
+    return { message: 'Cuenta reactivada y sesión iniciada correctamente.', accessToken };
   }
 
   /**
@@ -135,7 +135,7 @@ export class AuthController {
     res.clearCookie('access_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     });
     return { message: 'Sesión cerrada correctamente.' };
   }
