@@ -1,9 +1,14 @@
-import { Controller, Post, Body, Put, Param, Patch, Delete, Get } from '@nestjs/common';
+import { Controller, Post, Body, Put, Param, Patch, Delete, Get, UseGuards } from '@nestjs/common';
 import { ActividadesService } from './actividades.service';
 import { CreateActividadDto, UpdateActividadDto, AddEvidenciaDto, UpdateEvidenciaDto } from './dto/actividad.dto';
 import { AddComentarioDto, UpdateComentarioDto } from '../proyectos/dto/proyecto.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('actividades')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Alumno', 'Docente', 'Scrum Master')
 export class ActividadesController {
   constructor(private readonly actividadesService: ActividadesService) {}
 

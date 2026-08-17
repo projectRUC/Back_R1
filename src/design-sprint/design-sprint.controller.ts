@@ -10,6 +10,7 @@ import {
   Req,
   NotFoundException,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -22,7 +23,10 @@ import { CreatePrototipoDto } from './dto/create-prototipo.dto';
 import { AddComentarioDto } from './dto/add-comentario.dto';
 import { PitchCoachResponseDto } from './dto/pitch-coach-response.dto';
 import { UpdateVoBoDto } from './dto/update-vobo.dto';
-import { AiService } from 'src/ai/ai.service';
+import { AiService } from '../ai/ai.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 const multerConfig = {
   storage: diskStorage({
@@ -36,6 +40,8 @@ const multerConfig = {
 };
 
 @Controller('design-sprint')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('Alumno', 'Docente', 'Scrum Master')
 export class DesignSprintController {
   constructor(
     private readonly designSprintService: DesignSprintService,
