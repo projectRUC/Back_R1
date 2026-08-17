@@ -2,21 +2,24 @@ name: Pruebas unitarias PAEC
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
   unitarias:
     name: Jest - CP-U-01 / CP-U-02 / CP-U-03
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+    steps:
+      - name: Obtener codigo fuente
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Instalar dependencias
@@ -34,3 +37,4 @@ jobs:
         with:
           name: cobertura-unitarias
           path: coverage/unitarias/
+          if-no-files-found: warn
