@@ -127,7 +127,7 @@ describe('AuthService — Regresión: recuperación de credenciales', () => {
   //   → cambiarContrasenaRecuperacion → login con nueva contraseña
   it('CP-R-03: flujo completo solicitar → verificar → cambiar → login', async () => {
     const CODIGO      = '123456';
-    const fechaReciente = new Date(Date.now() - 60_000); // hace 1 min, dentro de los 5 min de vigencia
+    const fechaReciente = new Date(Date.now() - 60_000); // hace 1 min, dentro de los 5 min de vigencia 12 
 
     // ── 1. solicitarRecuperacion ─────────────────────────────────────────
     prismaMock.usuario.findUnique.mockResolvedValueOnce(usuarioBase);
